@@ -1,0 +1,41 @@
+[Unit]
+# Туннель хаба до узла на другом сервере (фаза 2). Экземпляр — слаг сервера:
+#   systemctl enable --now awgdash-tunnel@<слаг>
+# Параметры каждого узла лежат в /etc/awgdash/tunnels/<слаг>.env:
+#   REMOTE=user@node.example.com   SSH_PORT=22   LOCAL_PORT=10089   REMOTE_PORT=10089
+Description=awgdash — туннель до узла %i
+Documentation=https://github.com/poznik/awgdash-pub
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=awgdash
+Group=awgdash
+EnvironmentFile=/etc/awgdash/tunnels/%i.env
+# ExitOnForwardFailure: без него ssh молча живёт с непрокинутым портом, и панель
+# видит «узел не отвечает» вместо внятной ошибки.
+ExecStart=/usr/bin/ssh -N -T \
+  -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+  -o StrictHostKeyChecking=accept-new \
+  -o UserKnownHostsFile=/etc/awgdash/keys/known_hosts \
+  -o IdentitiesOnly=yes \
+  -i /etc/awgdash/keys/%i \
+  -p ${SSH_PORT} \
+  -L 127.0.0.1:${LOCAL_PORT}:127.0.0.1:${REMOTE_PORT} \
+  ${REMOTE}
+Restart=always
+RestartSec=5s
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/etc/awgdash/keys
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=64M
+
+[Install]
+WantedBy=multi-user.target

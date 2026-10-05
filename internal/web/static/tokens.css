@@ -1,0 +1,57 @@
+/* awgdash · токены дизайн-системы «Люди вперёд» (design.md). Источник истины — этот файл;
+   правки переносятся в design.md, а не наоборот. */
+:root {
+  --color-paper: oklch(98% 0.005 78); --color-paper-2: oklch(97% 0.005 78); --color-paper-3: oklch(95% 0.007 81);
+  --color-card: oklch(100% 0 90);
+  --color-rule: oklch(93% 0.010 73); --color-rule-2: oklch(88% 0.013 71);
+  --color-ink: oklch(24% 0.007 67); --color-muted: oklch(55% 0.013 63); --color-muted-2: oklch(61% 0.014 64);
+  --color-accent: oklch(49% 0.195 279); --color-accent-soft: oklch(95% 0.020 292); --color-accent-ink: oklch(100% 0 90);
+  --color-ok: oklch(58% 0.120 156); --color-ok-soft: oklch(96% 0.007 160);
+  --color-warn: oklch(62% 0.125 70); --color-warn-soft: oklch(96% 0.025 81); --color-warn-rule: oklch(90% 0.043 76);
+  --color-crit: oklch(55% 0.167 31); --color-crit-soft: oklch(95% 0.016 22);
+  --color-scrim: oklch(24% 0.007 67 / 0.32);
+  --qr-paper: oklch(100% 0 90); --qr-ink: oklch(24% 0.007 67);
+
+  --font-display: "Unbounded", "Trebuchet MS", sans-serif;
+  --font-body: "Manrope", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", Menlo, Consolas, monospace;
+
+  --text-xs: 0.75rem; --text-sm: 0.8125rem; --text-md: 0.875rem; --text-base: 0.9375rem;
+  --text-lg: 1.0625rem; --text-xl: 1.375rem; --text-2xl: 1.625rem; --text-3xl: 2.125rem;
+
+  --space-2xs: 0.25rem; --space-xs: 0.5rem; --space-sm: 0.75rem;
+  --space-md: 1rem; --space-lg: 1.5rem; --space-xl: 2rem; --space-2xl: 3.5rem;
+
+  --radius-card: 16px; --radius: 12px; --radius-pill: 999px;
+  --control-h: 46px;
+  --ease-out: cubic-bezier(0.16,1,0.3,1); --dur: 180ms;
+  --z-raised: 10; --z-sticky: 200; --z-sheet: 300; --z-modal: 400;
+  --shadow-card: 0 1px 2px oklch(24% 0.007 67 / 0.04);
+  --shadow-sheet: 0 -14px 40px oklch(24% 0.007 67 / 0.10);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --color-paper: oklch(17% 0.006 67); --color-paper-2: oklch(20% 0.007 67); --color-paper-3: oklch(24% 0.008 67);
+  --color-card: oklch(21% 0.007 67);
+  --color-rule: oklch(28% 0.008 67); --color-rule-2: oklch(36% 0.010 67);
+  --color-ink: oklch(94% 0.006 78); --color-muted: oklch(72% 0.012 70); --color-muted-2: oklch(66% 0.012 68);
+  --color-accent: oklch(76% 0.140 285); --color-accent-soft: oklch(28% 0.050 285); --color-accent-ink: oklch(17% 0.006 67);
+  --color-ok: oklch(75% 0.120 156); --color-ok-soft: oklch(26% 0.035 156);
+  --color-warn: oklch(80% 0.120 75); --color-warn-soft: oklch(27% 0.045 75); --color-warn-rule: oklch(38% 0.060 75);
+  --color-crit: oklch(72% 0.150 28); --color-crit-soft: oklch(27% 0.050 28);
+  --color-scrim: oklch(8% 0.006 67 / 0.55);
+  --qr-paper: oklch(100% 0 90); --qr-ink: oklch(17% 0.006 67);
+  --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.30); --shadow-sheet: 0 -14px 40px oklch(0% 0 0 / 0.45);
+} }
+:root[data-theme="dark"] {
+  --color-paper: oklch(17% 0.006 67); --color-paper-2: oklch(20% 0.007 67); --color-paper-3: oklch(24% 0.008 67);
+  --color-card: oklch(21% 0.007 67);
+  --color-rule: oklch(28% 0.008 67); --color-rule-2: oklch(36% 0.010 67);
+  --color-ink: oklch(94% 0.006 78); --color-muted: oklch(72% 0.012 70); --color-muted-2: oklch(66% 0.012 68);
+  --color-accent: oklch(76% 0.140 285); --color-accent-soft: oklch(28% 0.050 285); --color-accent-ink: oklch(17% 0.006 67);
+  --color-ok: oklch(75% 0.120 156); --color-ok-soft: oklch(26% 0.035 156);
+  --color-warn: oklch(80% 0.120 75); --color-warn-soft: oklch(27% 0.045 75); --color-warn-rule: oklch(38% 0.060 75);
+  --color-crit: oklch(72% 0.150 28); --color-crit-soft: oklch(27% 0.050 28);
+  --color-scrim: oklch(8% 0.006 67 / 0.55);
+  --qr-paper: oklch(100% 0 90); --qr-ink: oklch(17% 0.006 67);
+  --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.30); --shadow-sheet: 0 -14px 40px oklch(0% 0 0 / 0.45);
+}

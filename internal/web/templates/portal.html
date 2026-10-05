@@ -1,0 +1,145 @@
+{{define "portal.html"}}<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{{.Title}} · {{.Brand}}</title>
+<!-- Значок встроен в страницу: портал не грузит ничего из сети (ТЗ §7.1). -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2064%2064%22%20role=%22img%22%20aria-label=%22awgdash%22%3E%20%3Ccircle%20cx=%2232%22%20cy=%2232%22%20r=%2232%22%20fill=%22%234b3ce8%22/%3E%20%3Cpath%20d=%22M13.5%2021.5%20L22%2042.5%20L32%2027%20L42%2042.5%20L50.5%2021.5%22%20fill=%22none%22%20stroke=%22%23ffffff%22%20stroke-width=%226.5%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22/%3E%20%3C/svg%3E">
+<style>{{css .CSS}}</style>
+</head>
+<body>
+<main>
+  <header class="row">
+    <h1>{{.Page.User.Name}}</h1>
+    <span class="chip">{{plural .Page.Total "устройство" "устройства" "устройств"}} из {{.Page.User.MaxDevices}}</span>
+  </header>
+
+  {{if .Flash}}<p class="flash">{{.Flash}}</p>{{end}}
+  {{if .Error}}<p class="flash flash--err">{{.Error}}</p>{{end}}
+
+  {{if .Config}}
+  {{with .Config}}
+  <section class="card">
+    <div class="card__head">
+      <span class="name">{{.Device.Name}}</span>
+      <a class="small" href="/u/{{$.Token}}">← все устройства</a>
+    </div>
+    {{if gt (len $.Page.Groups) 0}}
+    {{$eps := (index $.Page.Groups 0).Endpoints}}
+    {{if gt (len $eps) 1}}
+    <div class="seg">
+      {{range $eps}}<a href="/u/{{$.Token}}/devices/{{$.Device}}?ep={{.Label}}" {{if eq .Label $.Current}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}
+    </div>
+    {{end}}
+    {{end}}
+    {{raw .SVG}}
+    <div class="acts">
+      <a class="btn btn--primary btn--wide" href="/u/{{$.Token}}/devices/{{$.Device}}/conf?ep={{$.Current}}">Скачать .conf</a>
+    </div>
+    {{if .TooLong}}<p class="small muted">Конфиг длинный — если камера не берёт QR, скачайте файл и откройте его в приложении.</p>{{end}}
+    <details class="help">
+      <summary>Показать текстом</summary>
+      <pre class="conf">{{.Text}}</pre>
+    </details>
+  </section>
+  {{end}}
+  {{end}}
+
+  {{range .Page.Groups}}
+  <section>
+    <h2>{{.Title}}</h2>
+    {{if .Retired}}
+    <p class="small muted">{{.Interface}} · сервер закрыт</p>
+    <div class="card">
+      <p class="small">Этот сервер выведен из работы, и устройства на нём больше не подключатся:
+        {{range $i, $d := .Devices}}{{if $i}}, {{end}}{{$d.Name}}{{end}}.</p>
+      <p class="small muted">Создайте конфиг на доступном сервере.</p>
+    </div>
+    {{else}}
+    <p class="small muted">{{.Interface}}{{range .Endpoints}}{{if .Primary}} · {{.Host}}:{{.Port}}{{end}}{{end}}</p>
+    {{range .Devices}}
+    <section class="card" style="margin-top:.6rem">
+      <div class="card__head">
+        <span class="dot {{if .Disabled}}dot--crit{{else if .Online}}dot--ok dot--live{{else if not .OnInterface}}dot--warn{{end}}"></span>
+        <span class="name">{{.Name}}</span>
+        <span class="small muted">{{if .Disabled}}отключено{{else if .Online}}онлайн {{age .LastSeen}}{{else if .LastSeen.IsZero}}ещё не подключалось{{else}}офлайн {{age .LastSeen}}{{end}}</span>
+      </div>
+      <div class="grid2">
+        <span>адрес</span><span class="mono">{{.Address}}</span>
+        <span>за сутки</span><span class="mono">↓{{bytes .Tx24}} ↑{{bytes .Rx24}}</span>
+        <span>за месяц</span><span class="mono">↓{{bytes .TxMonth}} ↑{{bytes .RxMonth}}</span>
+      </div>
+      <div class="acts">
+        <a class="btn btn--wide" href="/u/{{$.Token}}/devices/{{.ID}}">QR и конфиг</a>
+        {{if $.Page.User.SelfService}}
+        <form method="post" action="/u/{{$.Token}}/devices/{{.ID}}/delete"
+              onsubmit="return confirm('Удалить «{{.Name}}»? Устройство перестанет подключаться.')">
+          <button class="btn btn--danger" type="submit">Удалить</button>
+        </form>
+        {{end}}
+      </div>
+      {{if $.Page.User.SelfService}}
+      <form class="inline" method="post" action="/u/{{$.Token}}/devices/{{.ID}}/rename">
+        <input type="text" name="name" value="{{.Name}}" maxlength="32" required aria-label="имя устройства">
+        <button class="btn" type="submit">Переименовать</button>
+      </form>
+      {{end}}
+    </section>
+    {{else}}
+    <p class="muted small" style="margin-top:.6rem">Устройств пока нет.</p>
+    {{end}}
+    {{end}}
+  </section>
+  {{end}}
+
+  {{if .Page.CanAdd}}
+  <section class="card">
+    <h3>Новое устройство</h3>
+    <form class="add" method="post" action="/u/{{.Token}}/devices">
+      <label class="field">Название
+        <input type="text" name="name" placeholder="Телефон" maxlength="32" required>
+      </label>
+
+      <fieldset class="opts">
+        <legend>Что это за устройство</legend>
+        <label class="opt"><input type="radio" name="preset" value="phone" checked><span>Телефон или ноутбук</span></label>
+        <label class="opt"><input type="radio" name="preset" value="router"><span>Роутер<small>не заворачивает домашнюю сеть в туннель</small></span></label>
+      </fieldset>
+
+      {{if gt (len .Page.Choices) 1}}
+      <fieldset class="opts opts--cols">
+        <legend>Через какой сервер</legend>
+        {{range $i, $c := .Page.Choices}}
+        <label class="opt"><input type="radio" name="interface_id" value="{{$c.InterfaceID}}" {{if eq $i 0}}checked{{end}}><span>{{$c.Title}}</span></label>
+        {{end}}
+      </fieldset>
+      {{else}}
+      {{/* Единственный вариант всё равно уходит полем: иначе панель подставит свой сервер,
+           а человеку мог быть разрешён только чужой. */}}
+      {{range .Page.Choices}}<input type="hidden" name="interface_id" value="{{.InterfaceID}}">{{end}}
+      {{end}}
+
+      <button class="btn btn--primary btn--full" type="submit">Добавить устройство</button>
+    </form>
+    <p class="small muted">Осталось мест: {{.Page.Left}}. После добавления сразу откроется QR.</p>
+  </section>
+  {{else if .Page.User.SelfService}}
+  <p class="small muted">Все места заняты ({{.Page.User.MaxDevices}}). Удалите ненужное устройство или напишите администратору.</p>
+  {{end}}
+
+  <details class="help">
+    <summary>Как подключить</summary>
+    <ol>
+      <li>Установите приложение <b>AmneziaWG</b>: App Store, Google Play, F-Droid или сайт AmneziaVPN для компьютера.</li>
+      <li>В приложении выберите «Добавить туннель» → «Сканировать QR» и наведите камеру на код с этой страницы.</li>
+      <li>Если QR не читается — скачайте файл <span class="mono">.conf</span> и откройте его в приложении.</li>
+      <li>Для роутера Keenetic: раздел «Интернет → Другие подключения → WireGuard», импорт файла <span class="mono">.conf</span>.</li>
+    </ol>
+    <p>Один конфиг — одно устройство. Если нужен ещё телефон, добавьте отдельное устройство.</p>
+  </details>
+</main>
+</body>
+</html>
+{{end}}

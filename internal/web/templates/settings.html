@@ -1,0 +1,206 @@
+{{define "settings.html"}}
+{{template "head" .}}
+<main class="page">
+  {{template "flash" .}}
+  <div class="listhead"><h1>Настройки</h1></div>
+
+  <div class="controls mt">
+    <div class="btns">
+      <a class="btn btn--sm" href="#login">Вход</a>
+      <a class="btn btn--sm" href="#backup">Копии</a>
+      <a class="btn btn--sm" href="#notify">Оповещения</a>
+      <a class="btn btn--sm" href="#about">О панели</a>
+    </div>
+  </div>
+
+  <div class="cols mt">
+    <div class="stack">
+
+      <section class="card" id="login">
+        <div class="card__head">
+          <span class="ava">{{initial .Me.Username}}</span>
+          <span class="card__who">
+            <h2 class="card__title">{{.Me.Username}}</h2>
+            <span class="row__sub">последний вход {{when .Me.LastLoginAt}}</span>
+          </span>
+          <span class="pill {{if .Me.TOTPEnabled}}pill--ok{{else}}pill--warn{{end}} push">второй фактор {{if .Me.TOTPEnabled}}включён{{else if .Me.TOTPPending}}не подтверждён{{else}}не настроен{{end}}</span>
+        </div>
+        <p class="card__say">Пароль меняется на сервере: <span class="mono">awgdash admin passwd {{.Me.Username}}</span> — так он не проходит через браузер и не оседает в истории.</p>
+
+        <h3 class="lab mt">Ключи входа</h3>
+        <p class="small muted mt-xs">Windows Hello, Touch ID, Face ID. Ключ остаётся на устройстве: панель хранит только публичную часть. Пароль и второй фактор работают как запасной путь.</p>
+        {{if .Passkeys}}
+        <div class="rows mt-xs">
+          {{range .Passkeys}}
+          <div class="row">
+            <span class="dot dot--ok"></span>
+            <span class="row__main">
+              <span class="row__name">{{.Name}}</span>
+              <span class="row__sub mono">{{if .RPID}}{{.RPID}}{{else}}любое имя{{end}} · заведён {{date .CreatedAt}}{{if not .LastUsedAt.IsZero}} · вход {{age .LastUsedAt}} назад{{end}}</span>
+            </span>
+            <form method="post" action="/settings/passkeys/{{.ID}}/delete">
+              <input type="hidden" name="csrf" value="{{$.CSRF}}">
+              <button class="btn btn--sm btn--danger" type="submit" onclick="return confirm('Удалить ключ «{{.Name}}»?')">Удалить</button>
+            </form>
+          </div>
+          {{end}}
+        </div>
+        {{else}}
+        <p class="small muted mt-xs">Ключей пока нет.</p>
+        {{end}}
+        <div class="controls mt">
+          <label class="search"><input type="text" id="passkey-name" maxlength="32" placeholder="ноутбук, телефон"></label>
+          <button class="btn btn--sm btn--go" type="button" id="passkey-register" hidden>Добавить ключ</button>
+        </div>
+        <p class="note small mt-xs" id="passkey-note" hidden></p>
+        <noscript><p class="small muted mt-xs">Для добавления ключа нужен JavaScript: браузер сам общается с устройством.</p></noscript>
+
+        <h3 class="lab mt">Второй фактор</h3>
+        {{if .Me.TOTPEnabled}}
+          <p class="small mt-xs">Включён: после пароля панель спросит код из приложения.</p>
+          <form method="post" action="/settings/totp/disable" class="mt-xs">
+            <input type="hidden" name="csrf" value="{{.CSRF}}">
+            <button class="btn btn--sm btn--danger" type="submit" onclick="return confirm('Выключить второй фактор? Вход останется по одному паролю.')">Выключить</button>
+          </form>
+        {{else if .TOTPQR}}
+          <div class="grid2 mt-xs">
+            <div class="sheet__qr">{{raw .TOTPQR}}</div>
+            <div>
+              <p class="small">Отсканируйте QR в приложении-аутентификаторе и введите код — до подтверждения вход идёт по одному паролю, закрыть себе доступ невозможно.</p>
+              <form class="mt-xs" method="post" action="/settings/totp/enable">
+                <input type="hidden" name="csrf" value="{{.CSRF}}">
+                <label>Код из приложения<input type="text" name="code" inputmode="numeric" maxlength="9" autocomplete="one-time-code" required></label>
+                <div class="btns mt-xs"><button class="btn btn--sm btn--go" type="submit">Включить</button></div>
+              </form>
+              <p class="small muted mt-xs">Если камера не берёт QR, секрет вводится руками:</p>
+              <div class="linkbox mt-xs"><code class="mono">{{.TOTPKey}}</code></div>
+            </div>
+          </div>
+        {{else}}
+          <p class="small mt-xs">Не настроен: вход по одному паролю. Панель опубликована наружу, так что это не формальность.</p>
+          <form method="post" action="/settings/totp/new" class="mt-xs">
+            <input type="hidden" name="csrf" value="{{.CSRF}}">
+            <button class="btn btn--sm btn--go" type="submit">Настроить</button>
+          </form>
+        {{end}}
+
+        <details class="mt">
+          <summary class="lab">Открытые сессии · {{len .Sessions}}</summary>
+          <div class="rows mt-xs">
+            {{range .Sessions}}
+            <div class="row">
+              <span class="dot {{if eq .ID $.Current}}dot--ok{{end}}"></span>
+              <span class="row__main">
+                <span class="row__name mono">{{.IP}}{{if eq .ID $.Current}} · эта{{end}}</span>
+                <span class="row__sub">{{ua .UA}} · вход {{when .CreatedAt}}</span>
+              </span>
+              <span class="row__val">{{age .LastSeenAt}}<br><span class="muted small">до {{date .ExpiresAt}}</span></span>
+            </div>
+            {{end}}
+          </div>
+          {{if gt (len .Sessions) 1}}
+          <form method="post" action="/settings/sessions/revoke" class="mt-xs">
+            <input type="hidden" name="csrf" value="{{.CSRF}}">
+            <button class="btn btn--sm" type="submit" onclick="return confirm('Закрыть все входы, кроме текущего?')">Закрыть остальные</button>
+          </form>
+          {{end}}
+        </details>
+      </section>
+
+      <section class="card" id="notify">
+        <div class="card__head">
+          <h2 class="card__title">Оповещения в Telegram</h2>
+          <span class="pill {{if .BotOn}}pill--ok{{else}}pill--warn{{end}} push">{{if .BotOn}}бот на связи{{else}}токен не задан{{end}}</span>
+        </div>
+        <p class="card__say">{{if .BotOn}}События уходят в личку администратора. Команды бота — /status, /online, /server, /help.{{else}}Оповещатель выключен: токен и получатели живут в <span class="mono">/etc/awgdash/awgdash.env</span>.{{end}}</p>
+        <form class="form" method="post" action="/settings/notify">
+          <input type="hidden" name="csrf" value="{{.CSRF}}">
+          <label class="check wide"><input type="checkbox" name="enabled" {{if .Notify.Enabled}}checked{{end}}> сообщать о событиях</label>
+          <label class="check wide"><input type="checkbox" name="quiet" {{if .Notify.QuietEnabled}}checked{{end}}> тихие часы</label>
+          <label>Тишина с<input type="number" name="quiet_from" value="{{.Notify.QuietFrom}}" min="0" max="23"></label>
+          <label>до<input type="number" name="quiet_to" value="{{.Notify.QuietTo}}" min="0" max="23"></label>
+          <label>Диск, %<input type="number" name="disk_high" value="{{.Notify.DiskHigh}}" min="1" max="100"></label>
+          <label>Память, %<input type="number" name="mem_high" value="{{.Notify.MemHigh}}" min="1" max="100"></label>
+          <label>Нагрузка<input type="text" name="load_high" value="{{printf "%.2f" .Notify.LoadHigh}}"></label>
+          <label>Всплеск, ГБ за час<input type="text" name="spike_gb" value="{{printf "%.1f" .Notify.SpikeGB}}"></label>
+          <label class="wide">Засуха: сколько устройств за сутки делает тишину подозрительной<input type="number" name="drought_min" value="{{.Notify.DroughtMin}}" min="1" max="10000"></label>
+          <div class="wide">
+            <p class="lab">О чём молчать</p>
+            <div class="checks mt-xs">
+              {{range .Kinds}}<label class="check"><input type="checkbox" name="off_{{.Kind}}" {{if .Off}}checked{{end}}> {{.Title}}</label>{{end}}
+            </div>
+          </div>
+          <div class="wide"><button class="btn btn--go" type="submit">Сохранить</button></div>
+        </form>
+        <p class="small muted mt-xs">Тихие часы придерживают всё, кроме критического: об упавшем интерфейсе панель скажет и ночью. Повтор об одном и том же — не чаще раза в час.</p>
+      </section>
+    </div>
+
+    <aside class="stack">
+      <section class="card {{if not .Backup.Enabled}}card--warn{{end}}" id="backup">
+        <div class="card__head">
+          <h2 class="card__title">Резервные копии</h2>
+          <span class="pill {{if .Backup.Enabled}}pill--ok{{else}}pill--warn{{end}} push">{{if .Backup.Enabled}}включены{{else}}выключены{{end}}</span>
+        </div>
+        {{if .Backup.Enabled}}
+        <p class="card__say">Шифруются на ключ <span class="mono">{{.Backup.Recipient}}</span>: расшифровать можно только приватным ключом из менеджера паролей. Ежедневно в 03:30 и через пять минут после изменений{{if .Backup.ToTelegram}}, файлом в Telegram{{end}}; полная — по воскресеньям.</p>
+        <form method="post" action="/settings/backup/now">
+          <input type="hidden" name="csrf" value="{{.CSRF}}">
+          <input type="hidden" name="kind" value="config">
+          <button class="btn btn--go" type="submit">Сделать копию сейчас</button>
+        </form>
+        {{else}}
+        <p class="card__say">Не задан публичный ключ <span class="mono">age</span>, поэтому копий нет вовсе — внутри приватные ключи сервера и клиентов. Пара создаётся командой <span class="mono">awgdash backup keygen --install</span>.</p>
+        {{end}}
+        <div class="rows mt">
+          <div class="row"><span class="row__main"><span class="row__name">Последняя копия</span></span><span class="row__val">{{if .Backup.LastAt.IsZero}}не было{{else}}{{age .Backup.LastAt}} назад{{end}}</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">Каталог</span></span><span class="row__val mono small">{{.Backup.Dir}}</span></div>
+          {{if .Backup.SCPTarget}}<div class="row"><span class="row__main"><span class="row__name">Копия по scp</span></span><span class="row__val mono small">{{.Backup.SCPTarget}}</span></div>{{end}}
+        </div>
+        {{if .Backups}}
+        <details class="mt">
+          <summary class="lab">Что лежит · {{len .Backups}}</summary>
+          <div class="rows mt-xs">
+            {{range .Backups}}
+            <div class="row">
+              <span class="row__main"><span class="row__name mono small">{{.Name}}</span><span class="row__sub">{{when .At}}</span></span>
+              <span class="row__val">{{bytes .Size}}</span>
+            </div>
+            {{end}}
+          </div>
+          <p class="small muted mt-xs">Проверить копию, ничего не применяя: <span class="mono">awgdash backup verify &lt;файл&gt; --age-key &lt;ключ&gt;</span>. Восстановление — <span class="mono">awgdash restore &lt;файл&gt;</span> от root на чистом сервере.</p>
+        </details>
+        {{end}}
+      </section>
+
+      <section class="card" id="about">
+        <div class="card__head"><h2 class="card__title">О панели</h2></div>
+        <form class="mt-xs" method="post" action="/settings/brand">
+          <input type="hidden" name="csrf" value="{{.CSRF}}">
+          <label class="lab" for="brand">Как называется эта панель</label>
+          <div class="controls mt-xs">
+            <input id="brand" type="text" name="brand" value="{{.Brand}}" maxlength="32" placeholder="awgdash" style="flex: 1 1 12rem">
+            <button class="btn btn--sm btn--go" type="submit">Сохранить</button>
+          </div>
+          <p class="small muted mt-xs">Показывается во вкладке браузера и в левом верхнем углу. Пустое поле вернёт «awgdash». Полезно, когда панелей несколько: рабочая, домашняя, чужая.</p>
+        </form>
+        <div class="rows mt">
+          <div class="row"><span class="row__main"><span class="row__name">Версия</span></span><span class="row__val mono">{{.Version}}</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">Админка</span></span><span class="row__val mono small">{{.Config.AdminHost}}</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">Портал</span></span><span class="row__val mono small">{{if .Config.PortalHost}}{{.Config.PortalHost}}{{else}}не задан{{end}}</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">Часовой пояс</span></span><span class="row__val mono small">{{.Config.TZ}}</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">Выборка</span></span><span class="row__val mono">{{.Config.Sample}}</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">Данные</span></span><span class="row__val mono small">{{.Config.DataDir}}</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">Чужие менеджеры</span></span><span class="row__val mono small">{{join .Config.Foreign ", "}}</span></div>
+        </div>
+      </section>
+
+      <form method="post" action="/logout">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <button class="btn" type="submit" style="width: 100%">Выйти из панели</button>
+      </form>
+    </aside>
+  </div>
+</main>
+{{template "foot" .}}
+{{end}}

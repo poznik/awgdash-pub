@@ -1,0 +1,336 @@
+{{define "users.html"}}
+{{template "head" .}}
+<main class="page">
+
+{{if .Selected}}
+{{with .Selected}}
+  <a class="btn btn--sm back-link" href="/users">← Пользователи</a>
+  {{template "flash" $}}
+
+  <section class="card mt">
+    <div class="card__head">
+      <span class="ava">{{initial .Name}}</span>
+      <span class="card__who">
+        <h1 class="who__name">{{.Name}}</h1>
+        <span class="row__sub">{{.Say}}{{if .Note}} · {{.Note}}{{end}}</span>
+      </span>
+      <span class="btns push">
+        {{if .DeletedAt.IsZero}}
+          <a class="btn btn--go" href="/users/{{.ID}}/devices/new" data-modal="new-device">+ устройство</a>
+          <form method="post" action="/users/{{.ID}}/status">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <input type="hidden" name="status" value="{{if .Disabled}}active{{else}}disabled{{end}}">
+            <button class="btn" type="submit">{{if .Disabled}}Включить{{else}}Отключить{{end}}</button>
+          </form>
+          <a class="btn" href="#edit" data-open="#edit">Изменить</a>
+          <details class="menu">
+            <summary class="btn btn--ico" title="Ещё" aria-label="Ещё">
+              <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>
+            </summary>
+            <div class="menu__list">
+              <form method="post" action="/users/{{.ID}}/link">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                <button class="menu__item" type="submit">Перевыпустить ссылку портала</button>
+              </form>
+              {{if and $.Owners .Devices}}<a class="menu__item" href="#merge" data-open="#merge">Объединить с другим</a>{{end}}
+              <form method="post" action="/users/{{.ID}}/delete">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                <button class="menu__item menu__item--danger" type="submit"
+                        onclick="return confirm('Удалить {{.Name}} и снять все его пиры? Восстановить можно 30 дней.')">Удалить пользователя</button>
+              </form>
+            </div>
+          </details>
+        {{else}}
+          <form method="post" action="/users/{{.ID}}/restore">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <button class="btn btn--go" type="submit">Восстановить</button>
+          </form>
+        {{end}}
+      </span>
+    </div>
+    <div class="card__foot">
+      <span class="pill">{{plural (len .Devices) "устройство" "устройства" "устройств"}} из {{.MaxDevices}}</span>
+      {{if .SelfService}}<span class="pill pill--accent">заводит устройства сам</span>{{end}}
+      {{if not .ExpiresAt.IsZero}}<span class="pill {{if .Expired}}pill--warn{{end}}">доступ до {{date .ExpiresAt}}</span>{{end}}
+      <span class="row__val push">за сутки {{bytes .Totals.DayTx}} ↓</span>
+    </div>
+  </section>
+
+  <h2 class="sec">Устройства</h2>
+  {{range .Groups}}
+  <div class="grouphead">
+    <span class="grouphead__name">{{flag .Country}} {{.Server}}</span>
+    <span class="grouphead__count">{{plural (len .Views) "устройство" "устройства" "устройств"}}{{if .Retired}} · сервер выведен{{end}}</span>
+  </div>
+  <div class="grid3">
+    {{range .Views}}
+    <article class="card dev">
+      <div class="card__head">
+        <span class="ico ico--{{if .Level}}{{.Level}}{{else}}muted{{end}}"><svg><use href="#i-{{preset .Preset}}"/></svg></span>
+        <span class="card__who">
+          <a class="card__title" href="/devices/{{.ID}}">{{.Name}}</a>
+          <span class="row__sub mono">{{.Address}}</span>
+        </span>
+      </div>
+      <p class="dev__state"><span class="dot dot--{{if .Level}}{{.Level}}{{else}}muted{{end}}{{if eq .Level "ok"}} dot--live{{end}}"></span>{{.Short}}</p>
+      <div class="dev__nums">
+        <span><span class="lab">Скачано</span><span class="meter__val">{{bytes .Tx24}} ↓</span></span>
+        <span><span class="lab">Отдано</span><span class="meter__val">{{bytes .Rx24}} ↑</span></span>
+      </div>
+      <div class="btns mt">
+        {{if .HasKey}}
+        <a class="btn btn--sm {{if .DeletedAt.IsZero}}btn--go{{end}}" href="/devices/{{.ID}}/config">Показать QR</a>
+        <a class="btn btn--sm" href="/devices/{{.ID}}/conf">.conf</a>
+        {{else}}
+        <span class="pill" title="Приватный ключ панели неизвестен: пир усыновлён или импортирован без него">конфиг недоступен</span>
+        {{end}}
+        <details class="menu">
+          <summary class="btn btn--sm btn--ico" title="Ещё" aria-label="Ещё">
+            <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>
+          </summary>
+          <div class="menu__list">
+            <a class="menu__item" href="/devices/{{.ID}}">История и трафик</a>
+            {{if .DeletedAt.IsZero}}
+            <form method="post" action="/devices/{{.ID}}/status">
+              <input type="hidden" name="csrf" value="{{$.CSRF}}">
+              <input type="hidden" name="status" value="{{if eq .Status "active"}}disabled{{else}}active{{end}}">
+              <button class="menu__item" type="submit">{{if eq .Status "active"}}Отключить{{else}}Включить{{end}}</button>
+            </form>
+            <form method="post" action="/devices/{{.ID}}/rotate">
+              <input type="hidden" name="csrf" value="{{$.CSRF}}">
+              <button class="menu__item" type="submit"
+                      onclick="return confirm('Ключи сменятся: прежний QR и все копии конфига перестанут работать сразу. Перевыпустить?')">Перевыпустить ключи</button>
+            </form>
+            <form method="post" action="/devices/{{.ID}}/delete">
+              <input type="hidden" name="csrf" value="{{$.CSRF}}">
+              <button class="menu__item menu__item--danger" type="submit"
+                      onclick="return confirm('Удалить «{{.Name}}» и снять его пир? Адрес держится за ним 30 дней.')">Удалить</button>
+            </form>
+            {{else}}
+            <form method="post" action="/devices/{{.ID}}/restore">
+              <input type="hidden" name="csrf" value="{{$.CSRF}}">
+              <button class="menu__item" type="submit">Восстановить</button>
+            </form>
+            {{end}}
+          </div>
+        </details>
+      </div>
+    </article>
+    {{end}}
+  </div>
+  {{end}}
+  {{if .DeletedAt.IsZero}}
+  <div class="grid2 mt">
+    <a class="card card--add" href="/users/{{.ID}}/devices/new" data-modal="new-device">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+      <span class="card__title">Добавить устройство</span>
+      <span class="row__sub">выбрать сервер и тип — QR откроется сразу</span>
+    </a>
+  </div>
+  {{end}}
+
+  {{if $.Link}}
+  <section class="card mt">
+    <div class="card__head"><h2 class="card__title">Личная ссылка</h2></div>
+    <p class="card__say">По ней {{.Name}} видит свои устройства и QR{{if .SelfService}} и может завести новое сам{{else}}; заводить устройства сам не может{{end}}.</p>
+    <div class="linkbox">
+      <code class="mono" id="portal-link">{{$.Link}}</code>
+      <button class="btn btn--sm" type="button" data-copy="#portal-link" data-copied="ссылка скопирована">Скопировать</button>
+    </div>
+  </section>
+  {{end}}
+
+  <div class="cols mt">
+    <section class="card">
+      <div class="card__head">
+        <h2 class="card__title">Трафик · {{$.Range.Title}}</h2>
+        <span class="btns push">
+          {{range $.Ranges}}<a class="btn btn--sm {{if eq .Key $.Range.Key}}btn--on{{end}}" {{if eq .Key $.Range.Key}}aria-current="page"{{end}} href="{{$.RangeBase}}?range={{.Key}}">{{.Title}}</a>{{end}}
+        </span>
+      </div>
+      <div class="mt">{{template "chart" .Chart}}</div>
+    </section>
+    <section class="card">
+      <div class="card__head"><h2 class="card__title">Итоги</h2></div>
+      <div class="rows mt-xs">
+        <div class="row"><span class="row__main"><span class="row__name">За сутки</span></span><span class="row__val">{{bytes .Totals.DayTx}} ↓ · {{bytes .Totals.DayRx}} ↑</span></div>
+        <div class="row"><span class="row__main"><span class="row__name">За неделю</span></span><span class="row__val">{{bytes .Totals.WeekRx}} ↓ · {{bytes .Totals.WeekTx}} ↑</span></div>
+        <div class="row"><span class="row__main"><span class="row__name">За месяц</span></span><span class="row__val">{{bytes .Totals.MonthRx}} ↓ · {{bytes .Totals.MonthTx}} ↑</span></div>
+        <div class="row"><span class="row__main"><span class="row__name">За всё время</span></span><span class="row__val">{{bytes .Totals.AllRx}} ↓ · {{bytes .Totals.AllTx}} ↑</span></div>
+      </div>
+    </section>
+  </div>
+
+  {{if .DeletedAt.IsZero}}
+  <details class="card mt" id="edit">
+    <summary class="card__title">Изменить пользователя</summary>
+    <form class="form mt" method="post" action="/users/{{.ID}}/update">
+      <input type="hidden" name="csrf" value="{{$.CSRF}}">
+      <label>Имя<input type="text" name="name" value="{{.Name}}" required maxlength="64"></label>
+      <label>Заметка<input type="text" name="note" value="{{.Note}}" maxlength="200"></label>
+      <label>Лимит устройств<input type="number" name="max_devices" value="{{.MaxDevices}}" min="1" max="50"></label>
+      <label>Доступ до<input type="date" name="expires_at" value="{{if not .ExpiresAt.IsZero}}{{.ExpiresAt.Format "2006-01-02"}}{{end}}"></label>
+      <label class="check wide"><input type="checkbox" name="self_service" {{if .SelfService}}checked{{end}}> может заводить устройства сам</label>
+      {{if or (gt (len $.Ifaces) 1) (len .AllowedInterfaces)}}
+      <div class="wide">
+        <input type="hidden" name="allowed_iface_present" value="1">
+        <p class="lab">Серверы, доступные в портале — ничего не отмечено значит «любой»</p>
+        <div class="checks">
+          {{$allowed := .AllowedInterfaces}}
+          {{range $.AllIfaces}}
+            {{if or .Own (allowedHas $allowed .ID)}}
+            <label class="check"><input type="checkbox" name="allowed_iface" value="{{.ID}}" {{if allowedHas $allowed .ID}}checked{{end}}> {{.Label}} · {{.Name}}{{if not .Own}} <span class="muted">(наблюдение — устройства сюда не заводятся)</span>{{end}}</label>
+            {{end}}
+          {{end}}
+        </div>
+      </div>
+      {{end}}
+      <div class="wide"><button class="btn btn--go" type="submit">Сохранить</button></div>
+    </form>
+  </details>
+  {{end}}
+
+  {{if and .DeletedAt.IsZero $.Owners .Devices}}
+  <details class="card mt" id="merge">
+    <summary class="card__title">Объединить с другим пользователем</summary>
+    <form class="form mt" method="post" action="/users/{{.ID}}/merge">
+      <input type="hidden" name="csrf" value="{{$.CSRF}}">
+      <label class="wide">Кому передать {{plural (len .Devices) "устройство" "устройства" "устройств"}}
+        <select name="user_id" required>
+          <option value="">выберите человека</option>
+          {{$self := .ID}}
+          {{range $.Owners}}{{if ne .ID $self}}<option value="{{.ID}}">{{.Name}} · {{plural .Devices "устройство" "устройства" "устройств"}}</option>{{end}}{{end}}
+        </select>
+      </label>
+      <label class="check wide"><input type="checkbox" name="raise_limit" checked> поднять лимит устройств у получателя, если перенос его превысит</label>
+      <label class="check wide"><input type="checkbox" name="delete_emptied" checked> удалить «{{.Name}}» после переноса — он останется без устройств</label>
+      <div class="wide"><button class="btn btn--go" type="submit">Объединить</button></div>
+    </form>
+    <p class="small muted">Нужно после импорта, где один человек пришёл несколькими записями. Ключи и адреса устройств не меняются, люди ничего не замечают; занятые имена получат суффикс. Устройства в корзине остаются здесь.</p>
+  </details>
+  {{end}}
+
+  {{if .Audit}}
+  <section class="card mt">
+    <div class="card__head"><h2 class="card__title">Что делали с этим пользователем</h2></div>
+    <div class="rows mt-xs">
+      {{range .Audit}}
+      <div class="row"><span class="row__main"><span class="row__name">{{action .Action}}</span></span><span class="row__val muted">{{age .TS}} назад</span></div>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+
+  <dialog class="modal" id="new-device">{{template "device-form" $}}</dialog>
+{{end}}
+
+{{else}}
+  {{template "flash" .}}
+  <div class="listhead">
+    <h1>Пользователи</h1>
+    <span class="pill">{{.Total}}</span>
+  </div>
+
+  {{/* Одна строка управления: слева действие и поиск, справа фильтры. */}}
+  <div class="controls mt">
+    <a class="btn btn--go" href="#new">+ пользователь</a>
+    <form class="search" method="get" action="/users">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
+      <input name="q" value="{{.Filter.Query}}" placeholder="Найти пользователя" autocomplete="off">
+      {{if .Filter.Status}}<input type="hidden" name="status" value="{{.Filter.Status}}">{{end}}
+      {{if .Filter.Online}}<input type="hidden" name="online" value="1">{{end}}
+      {{if .Filter.SelfService}}<input type="hidden" name="self" value="1">{{end}}
+      {{if .Filter.Deleted}}<input type="hidden" name="trash" value="1">{{end}}
+    </form>
+    <div class="btns push">
+      <a class="btn btn--sm {{if and (not .Filter.Online) (not .Filter.Deleted) (not .Filter.SelfService) (eq .Filter.Status "")}}btn--on{{end}}" href="/users?q={{.Filter.Query}}">все</a>
+      <a class="btn btn--sm {{if .Filter.Online}}btn--on{{end}}" href="/users?q={{.Filter.Query}}&amp;online=1">в туннеле</a>
+      <a class="btn btn--sm {{if eq .Filter.Status "disabled"}}btn--on{{end}}" href="/users?q={{.Filter.Query}}&amp;status=disabled">выключены</a>
+      <a class="btn btn--sm {{if .Filter.SelfService}}btn--on{{end}}" href="/users?q={{.Filter.Query}}&amp;self=1">заводят сами</a>
+      <a class="btn btn--sm {{if .Filter.Deleted}}btn--on{{end}}" href="/users?q={{.Filter.Query}}&amp;trash=1">корзина</a>
+    </div>
+  </div>
+
+  {{if and .Orphans (not .Filter.Deleted)}}
+  <a class="row card card--flat mt" href="/users/orphans">
+    <span class="ava ava--sm" aria-hidden="true">?</span>
+    <span class="row__main">
+      <span class="row__name">Пиры-сироты</span>
+      <span class="row__sub">пиры на интерфейсах, за которыми в панели никого нет</span>
+    </span>
+    <span class="chips push"><span class="pill pill--warn">{{plural .Orphans "пир" "пира" "пиров"}}</span></span>
+  </a>
+  {{end}}
+
+  {{if .Filter.Deleted}}
+  <div class="controls mt">
+    <p class="small muted" style="flex: 1 1 20rem; margin: 0">
+      Удалённое лежит здесь 30 дней и уходит само; всё это время адреса остаются занятыми за
+      устройствами. Очистка убирает их прямо сейчас — восстановить будет нечего.
+    </p>
+    <form method="post" action="/users/purge" class="push">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <button class="btn btn--sm btn--danger" type="submit"
+              {{if not .Users}}disabled{{end}}
+              onclick="return confirm('Очистить корзину? Удалённые пользователи и устройства уйдут насовсем, восстановить их будет нельзя.')">Очистить корзину</button>
+    </form>
+  </div>
+  {{end}}
+
+  {{/* Список не опрашивается: 200 строк не влезают в бюджет живого фрагмента (§7.1), да и
+       меняется он медленно. Живут карточка пользователя и обзор. */}}
+  <div class="mt">{{template "live-users" .}}</div>
+
+  {{if gt .Pages 1}}
+  <div class="btns mt">
+    {{if gt .Page 1}}<a class="btn btn--sm" href="/users?q={{.Filter.Query}}&amp;page={{sub .Page 1}}">← назад</a>{{end}}
+    <span class="pill">{{.Page}} из {{.Pages}}</span>
+    {{if lt .Page .Pages}}<a class="btn btn--sm" href="/users?q={{.Filter.Query}}&amp;page={{add .Page 1}}">дальше →</a>{{end}}
+  </div>
+  {{end}}
+
+  <section class="card mt" id="new">
+    <div class="card__head"><h2 class="card__title">Новый пользователь</h2></div>
+    <p class="card__say">Хватит имени: лимит устройств, срок и самообслуживание правятся потом.</p>
+    <form class="form" method="post" action="/users/new">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label>Имя<input type="text" name="name" required maxlength="64" placeholder="как звать в панели"></label>
+      <label>Заметка<input type="text" name="note" maxlength="200" placeholder="заметка о пользователе"></label>
+      <label>Лимит устройств<input type="number" name="max_devices" value="5" min="1" max="50"></label>
+      <label>Доступ до<input type="date" name="expires_at"></label>
+      <label class="check wide"><input type="checkbox" name="self_service"> может заводить устройства сам</label>
+      <div class="wide"><button class="btn btn--go" type="submit">Создать и выдать ссылку</button></div>
+    </form>
+  </section>
+{{end}}
+</main>
+{{template "foot" .}}
+{{end}}
+
+{{define "live-users"}}
+<div class="rows card card--flat">
+  {{range .Rows}}
+  <a class="row" href="/users/{{.ID}}">
+    <span class="ava ava--sm">{{initial .Name}}</span>
+    <span class="row__main">
+      <span class="row__name">{{.Name}}</span>
+      <span class="row__sub">{{userState .User}}{{if .Note}} · {{.Note}}{{end}}</span>
+    </span>
+    <span class="chips push">
+      {{range .Devs}}<span class="pill {{if eq .Level "ok"}}pill--ok{{else if eq .Level "crit"}}pill--crit{{end}}" title="{{.Title}}"><span class="dot {{if eq .Level "ok"}}dot--ok dot--live{{else if eq .Level "crit"}}dot--crit{{end}}"></span>{{.Name}}</span>{{end}}
+      {{if not .Devs}}<span class="pill">устройств нет</span>{{end}}
+    </span>
+    <span class="row__val nowrap" title="за сутки">{{bytes .Tx24}} ↓ · <span class="muted">{{bytes .Rx24}} ↑</span></span>
+  </a>
+  {{else}}
+  <p class="muted">Никого не нашлось — измените поиск или фильтр.</p>
+  {{end}}
+</div>
+{{end}}
+
+{{define "live-user"}}
+<div class="rows">
+  <div class="row"><span class="row__main"><span class="row__name">В туннеле</span></span><span class="row__val">{{.Online}} / {{.DevicesActive}}</span></div>
+  <div class="row"><span class="row__main"><span class="row__name">Последняя активность</span></span><span class="row__val">{{age .LastHandshake}}</span></div>
+</div>
+{{end}}

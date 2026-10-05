@@ -1,0 +1,5 @@
+# Сервер — Linux, разработка бывает и на Windows: в репозитории и в рабочем дереве всегда LF.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

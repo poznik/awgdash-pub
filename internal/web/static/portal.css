@@ -1,0 +1,118 @@
+/* awgdash · портал пользователя. Стили встраиваются в страницу: бюджет 40 КБ и один запрос
+   (ТЗ §7.1, FR-5.5), поэтому ни внешних файлов, ни загрузки шрифтов — только системный стек.
+   Токены и формы те же, что в админке (design.md, «Люди вперёд»), но шрифты системные. */
+:root {
+  --paper: oklch(98% 0.005 78); --paper-2: oklch(97% 0.005 78); --paper-3: oklch(95% 0.007 81);
+  --card: oklch(100% 0 90);
+  --rule: oklch(93% 0.010 73); --rule-2: oklch(88% 0.013 71);
+  --muted: oklch(55% 0.013 63); --ink: oklch(24% 0.007 67);
+  --accent: oklch(49% 0.195 279); --accent-soft: oklch(95% 0.020 292); --accent-ink: oklch(100% 0 90);
+  --ok: oklch(58% 0.120 156); --ok-soft: oklch(96% 0.007 160);
+  --warn: oklch(62% 0.125 70); --warn-soft: oklch(96% 0.025 81);
+  --crit: oklch(55% 0.167 31); --crit-soft: oklch(95% 0.016 22);
+  --body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, Menlo, Consolas, monospace;
+  --radius: 12px; --radius-card: 16px; --radius-pill: 999px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: oklch(17% 0.006 67); --paper-2: oklch(20% 0.007 67); --paper-3: oklch(24% 0.008 67);
+    --card: oklch(21% 0.007 67);
+    --rule: oklch(28% 0.008 67); --rule-2: oklch(36% 0.010 67);
+    --muted: oklch(72% 0.012 70); --ink: oklch(94% 0.006 78);
+    --accent: oklch(76% 0.140 285); --accent-soft: oklch(28% 0.050 285); --accent-ink: oklch(17% 0.006 67);
+    --ok: oklch(75% 0.120 156); --ok-soft: oklch(26% 0.035 156);
+    --warn: oklch(80% 0.120 75); --warn-soft: oklch(27% 0.045 75);
+    --crit: oklch(72% 0.150 28); --crit-soft: oklch(27% 0.050 28);
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 1.25rem 1rem 3rem; background: var(--paper); color: var(--ink);
+  font-family: var(--body); font-size: 0.95rem; line-height: 1.5; -webkit-text-size-adjust: 100%; }
+main { max-width: 34rem; margin: 0 auto; display: flex; flex-direction: column; gap: 1.25rem; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1 { font-size: 1.5rem; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.05rem; margin: 0; font-weight: 700; }
+h3 { font-size: 0.78rem; color: var(--muted); margin: 0; font-weight: 600; }
+.muted { color: var(--muted); } .small { font-size: 0.82rem; } .mono { font-family: var(--mono); font-size: 0.85rem; }
+.row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+.dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--muted); display: inline-block; flex: none; position: relative; }
+.dot--ok { background: var(--ok); }
+.dot--warn { background: var(--warn); }
+.dot--crit { background: var(--crit); }
+.dot--live::after { content: ""; position: absolute; inset: -3px; border-radius: 50%;
+  border: 2px solid var(--ok); animation: pulse 2.2s cubic-bezier(0.16,1,0.3,1) infinite; }
+@keyframes pulse { 0% { transform: scale(0.6); opacity: 0.6; } 70% { transform: scale(1.4); opacity: 0; } 100% { opacity: 0; } }
+
+.chip { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: var(--radius-pill);
+  background: var(--paper-3); color: var(--muted); padding: 0.25rem 0.7rem; font-size: 0.8rem; white-space: nowrap; }
+.chip--ok { background: var(--ok-soft); color: var(--ok); }
+.chip--warn { background: var(--warn-soft); color: var(--warn); }
+.chip--crit { background: var(--crit-soft); color: var(--crit); }
+
+.flash { margin: 0; padding: 0.6rem 0.85rem; border-radius: var(--radius);
+  background: var(--ok-soft); color: var(--ok); font-size: 0.9rem; }
+.flash--err { background: var(--crit-soft); color: var(--crit); }
+
+.card { border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--card);
+  padding: 1rem; display: flex; flex-direction: column; gap: 0.7rem; }
+.card__head { display: flex; align-items: center; gap: 0.5rem; }
+.card__head .name { font-weight: 700; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; min-height: 2.9rem;
+  padding: 0 1.1rem; border: 1px solid var(--rule-2); border-radius: var(--radius); background: var(--card);
+  color: var(--ink); font: inherit; font-size: 0.92rem; font-weight: 600; text-decoration: none; cursor: pointer; }
+.btn:hover { background: var(--paper-2); text-decoration: none; }
+.btn--primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn--wide { flex: 1; }
+.btn--danger { color: var(--crit); border-color: var(--rule-2); }
+.acts { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+form.inline { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+
+/* Форма нового устройства: на телефоне четыре поля в одну строку сжимались до «телеф» и «Ге»,
+   поэтому здесь всё идёт столбиком, а выбор — крупными кнопками с настоящим тач-таргетом. */
+form.add { display: flex; flex-direction: column; gap: 0.9rem; }
+form.add .field { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.82rem; color: var(--muted); }
+form.add .field input[type="text"] { flex: none; width: 100%; color: var(--ink); font-size: 1rem; }
+.opts { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.opts legend { padding: 0 0 0.4rem; font-size: 0.82rem; color: var(--muted); }
+/* Серверов в парке может быть четыре и больше — столбиком форма уезжает за экран, поэтому
+   выбор сервера идёт колонками. Кружок радио тут прячется (остаётся доступным с клавиатуры и
+   для скринридера): в 151 px на телефоне он съедал треть строки, и «Финляндия» переносилась. */
+.opts--cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); grid-auto-rows: 1fr; }
+.opts--cols legend { grid-column: 1 / -1; }
+.opts--cols .opt { justify-content: center; text-align: center; padding: 0.6rem 0.5rem; }
+.opts--cols .opt input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.opt { position: relative; display: flex; align-items: center; gap: 0.7rem; min-height: 3.1rem; padding: 0.6rem 0.9rem;
+  border: 1px solid var(--rule-2); border-radius: var(--radius); cursor: pointer; }
+.opt input { flex: none; width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }
+.opt span { display: flex; flex-direction: column; min-width: 0; }
+.opt small { color: var(--muted); font-size: 0.78rem; }
+.opt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.opt:has(input:checked) span { font-weight: 600; }
+.opt:has(input:focus-visible) { outline: 2px solid var(--accent); }
+.btn--full { width: 100%; }
+
+input[type="text"], select { min-height: 2.9rem; padding: 0 0.7rem; background: var(--card); color: var(--ink);
+  border: 1px solid var(--rule-2); border-radius: var(--radius); font: inherit; min-width: 0; flex: 1; }
+input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+
+.qr { width: min(100%, 16rem); height: auto; align-self: center; border-radius: var(--radius);
+  border: 1px solid var(--rule); background: #fff; padding: 0.5rem; }
+pre.conf { font-family: var(--mono); font-size: 0.72rem; line-height: 1.5; background: var(--paper-2);
+  border-radius: var(--radius); padding: 0.75rem; overflow-x: auto; margin: 0; }
+
+.seg { display: inline-flex; gap: 0.4rem; flex-wrap: wrap; }
+.seg a { padding: 0.4rem 0.85rem; font-size: 0.85rem; border-radius: var(--radius-pill);
+  background: var(--paper-3); color: var(--muted); text-decoration: none; }
+.seg a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+details.help > summary { cursor: pointer; color: var(--muted); font-size: 0.88rem; }
+details.help p, details.help li { font-size: 0.88rem; color: var(--muted); }
+.grid2 { display: grid; grid-template-columns: auto 1fr; gap: 0.35rem 1rem; font-size: 0.85rem; }
+.grid2 span:nth-child(odd) { color: var(--muted); }
+.grid2 span:nth-child(even) { text-align: right; }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

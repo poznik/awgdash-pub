@@ -1,0 +1,116 @@
+{{define "config.html"}}
+{{template "head" .}}
+<main class="page">
+  <a class="btn btn--sm back-link" href="/users/{{.User.ID}}">← {{.User.Name}}</a>
+  {{template "flash" .}}
+
+  <section class="card mt">
+    <div class="card__head">
+      <span class="ico ico--{{if .Level}}{{.Level}}{{end}}"><svg><use href="#i-{{preset .Device.Preset}}"/></svg></span>
+      <span class="card__who">
+        <h1 class="who__name">{{.Device.Name}}</h1>
+        <span class="row__sub">{{.Say}}</span>
+      </span>
+      <span class="row__val mono push">{{.Device.Address}}<br><span class="muted">{{flag .Server.CountryOrGuess}} {{.Server.Title}} · {{.Interface.Name}}</span></span>
+    </div>
+  </section>
+
+  <div class="cols mt">
+    <div class="stack">
+      <section class="card">
+        <div class="card__head">
+          <h2 class="card__title">Что делать {{.User.Name}}</h2>
+        </div>
+        <p class="card__say">Три шага — дальше туннель поднимется сам. Если не поднимется, пришлите запасной адрес: это тот же конфиг с другим портом.</p>
+        <div class="steps">
+          <div class="step"><span class="step__n">1</span><span>Поставить <b>AmneziaWG</b> — App Store, Google Play или сайт проекта.</span></div>
+          <div class="step"><span class="step__n">2</span><span>Отсканировать QR или открыть присланный файл <span class="mono">.conf</span>.</span></div>
+          <div class="step"><span class="step__n">3</span><span>Включить туннель. В панели устройство станет зелёным в течение минуты.</span></div>
+        </div>
+
+        {{if $.Link}}
+        <div class="note note--accent mt">
+          <div class="card__title">Или отправьте ссылку</div>
+          <p class="small">{{.User.Name}} откроет её и возьмёт QR сам{{if .User.SelfService}}, а заодно сможет завести ещё одно устройство{{end}}.</p>
+          <div class="linkbox mt-xs">
+            <code class="mono" id="portal-link">{{$.Link}}</code>
+            <button class="btn btn--sm" type="button" data-copy="#portal-link" data-copied="ссылка скопирована">Скопировать</button>
+          </div>
+        </div>
+        {{end}}
+      </section>
+
+      <details class="card">
+        <summary class="card__title">Текст конфига</summary>
+        <p class="small muted mt-xs">Выдача записана в журнал: кто, что и когда. Сам конфиг в журнал не попадает.</p>
+        <pre class="conf mt-xs" id="conf-text">{{.Config.Text}}</pre>
+        <div class="btns mt-xs"><button class="btn btn--sm" type="button" data-copy="#conf-text" data-copied="конфиг скопирован">Скопировать текст</button></div>
+      </details>
+
+      {{template "device-edit" .}}
+    </div>
+
+    <aside class="stack">
+      <section class="card">
+        <div class="sheet__qr">{{raw .Config.SVG}}</div>
+        {{if .Config.TooLong}}
+        <p class="note mt small">Конфиг длиннее 1000 символов — QR может не считаться с экрана. Надёжнее отдать файлом.</p>
+        {{end}}
+        <div class="btns mt">
+          <a class="btn btn--go" href="/devices/{{.Device.ID}}/conf?ep={{.Current.Label}}">Скачать .conf</a>
+        </div>
+        {{if gt (len .Endpoints) 1}}
+        <div class="mt">
+          <span class="lab">Адрес входа</span>
+          <div class="btns mt-xs">
+            {{range .Endpoints}}
+            <a class="btn btn--sm {{if eq .Label $.Current.Label}}btn--on{{end}}" {{if eq .Label $.Current.Label}}aria-current="page"{{end}} href="/devices/{{$.Device.ID}}/config?ep={{.Label}}">{{.Label}}</a>
+            {{end}}
+          </div>
+          <p class="small muted mt-xs">{{.Current.Host}}:{{.Current.Port}} — QR и файл пересобираются под выбранный адрес.</p>
+        </div>
+        {{end}}
+      </section>
+
+      <section class="card">
+        <div class="card__head"><h2 class="card__title">Устройство</h2></div>
+        <div class="rows mt-xs">
+          <div class="row"><span class="row__main"><span class="row__name">За сутки</span></span><span class="row__val">{{bytes .Device.Tx24}} ↓ · {{bytes .Device.Rx24}} ↑</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">Хендшейк</span></span><span class="row__val">{{age .Device.LastHandshake}}</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">Создано</span></span><span class="row__val">{{date .Device.CreatedAt}}</span></div>
+          {{if .Device.IssueCount}}<div class="row"><span class="row__main"><span class="row__name">Конфиг выдавали</span></span><span class="row__val">{{.Device.IssueCount}} раз</span></div>{{end}}
+        </div>
+        <div class="btns mt">
+          <a class="btn btn--sm" href="/devices/{{.Device.ID}}">История</a>
+          {{if .Device.DeletedAt.IsZero}}
+          <form method="post" action="/devices/{{.Device.ID}}/status">
+            <input type="hidden" name="csrf" value="{{.CSRF}}">
+            <input type="hidden" name="status" value="{{if eq .Device.Status "active"}}disabled{{else}}active{{end}}">
+            <button class="btn btn--sm" type="submit">{{if eq .Device.Status "active"}}Отключить{{else}}Включить{{end}}</button>
+          </form>
+          <form method="post" action="/devices/{{.Device.ID}}/delete">
+            <input type="hidden" name="csrf" value="{{.CSRF}}">
+            <button class="btn btn--sm btn--danger" type="submit" onclick="return confirm('Удалить «{{.Device.Name}}» и снять его пир? Адрес держится за ним 30 дней.')">Удалить</button>
+          </form>
+          {{else}}
+          <form method="post" action="/devices/{{.Device.ID}}/restore">
+            <input type="hidden" name="csrf" value="{{.CSRF}}">
+            <button class="btn btn--sm btn--go" type="submit">Восстановить</button>
+          </form>
+          {{end}}
+        </div>
+      </section>
+
+      <section class="card note">
+        <div class="card__title">Телефон потерян?</div>
+        <p class="small">Перевыпуск сменит ключи: этот QR и все прежние копии конфига перестанут работать сразу. Адрес {{.Device.Address}} останется за устройством.</p>
+        <form method="post" action="/devices/{{.Device.ID}}/rotate" class="mt-xs">
+          <input type="hidden" name="csrf" value="{{.CSRF}}">
+          <button class="btn btn--sm btn--warn" type="submit" onclick="return confirm('Перевыпустить ключи? Прежний конфиг перестанет работать сразу.')">Перевыпустить ключи</button>
+        </form>
+      </section>
+    </aside>
+  </div>
+</main>
+{{template "foot" .}}
+{{end}}

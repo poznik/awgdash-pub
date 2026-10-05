@@ -1,0 +1,179 @@
+{{define "dashboard.html"}}
+{{template "head" .}}
+<main class="page">
+  {{template "flash" .}}
+
+  <section class="verdict">
+    <span class="lab verdict__when">Сейчас · {{if .Status.LastSample.IsZero}}выборка ещё не делалась{{else}}выборка {{age .Status.LastSample}} назад{{end}}</span>
+    <h1 class="verdict__line">{{.Verdict.Head}}{{if .Verdict.Bad}}<br><b {{if .Verdict.Crit}}class="crit"{{end}}>{{.Verdict.Bad}}</b>{{end}}</h1>
+    <p class="verdict__why">{{.Verdict.Why}}</p>
+  </section>
+
+  <div class="cols">
+    <div class="stack">
+      {{/* Живыми держатся карточки серверов и «кто грузит канал»: вердикт и дела меняются
+           медленно и обновляются при заходе на страницу. */}}
+      <div data-live="/live/dashboard">{{template "live-dashboard" .}}</div>
+
+      <section class="card">
+        <div class="card__head">
+          <h2 class="card__title">Трафик парка за сутки</h2>
+          {{if .Chart.Empty}}<span class="pill push">трафика не было</span>{{end}}
+        </div>
+        <div class="mt">{{template "chart" .Chart}}</div>
+      </section>
+    </div>
+
+    <aside class="stack">
+      {{/* Пустая очередь карточки не занимает: «дел нет» — это и так видно по вердикту наверху. */}}
+      {{if .Tasks}}
+      <section class="card">
+        <div class="card__head">
+          <h2 class="card__title">Надо сделать</h2>
+          <span class="pill push">{{len .Tasks}}</span>
+        </div>
+        <div class="mt">
+          {{range .Tasks}}
+          <div class="task {{if eq .Level "crit"}}task--crit{{else if eq .Level "warn"}}task--warn{{end}}">
+            <div class="task__what">{{.What}}</div>
+            <div class="task__why">{{.Why}}</div>
+            {{if .Href}}<div class="btns"><a class="btn btn--sm" href="{{.Href}}">{{.Action}}</a></div>{{end}}
+          </div>
+          {{end}}
+        </div>
+      </section>
+      {{end}}
+
+      <section class="card">
+        <div class="card__head">
+          <h2 class="card__title">Что произошло</h2>
+          <a class="small push" href="/events">Журнал →</a>
+        </div>
+        <div class="rows mt-xs">
+          {{range .Events}}
+          <div class="row">
+            <span class="dot {{if eq .Severity "crit"}}dot--crit{{else if eq .Severity "warn"}}dot--warn{{end}}"></span>
+            <span class="row__main">
+              <span class="row__name">{{.Message}}</span>
+              <span class="row__sub">{{age .TS}} назад</span>
+            </span>
+          </div>
+          {{else}}
+          <p class="muted">Пока пусто.</p>
+          {{end}}
+        </div>
+      </section>
+    </aside>
+  </div>
+</main>
+{{template "foot" .}}
+{{end}}
+
+{{define "live-dashboard"}}
+<div class="stack">
+  <div class="grid2">
+    {{range .Servers}}
+    <article class="card {{if eq .Level "warn"}}card--warn{{end}}">
+      <div class="card__head">
+        <span class="ico ico--{{.Level}}"><svg><use href="#i-server"/></svg></span>
+        <span class="card__who">
+          <a class="card__title" href="/servers/{{.Slug}}">{{flag .CountryOrGuess}} {{.Title}}</a>
+          <span class="row__sub mono">{{.Slug}}{{if .PublicIP}} · {{.PublicIP}}{{end}}</span>
+        </span>
+        <span class="pill pill--{{.Level}} push"><span class="dot dot--{{.Level}}"></span>{{.LevelWord}}</span>
+      </div>
+
+      <p class="card__say">{{.Say}}</p>
+
+      <div class="grid3">
+        <div class="meter {{if .DiskLevel}}meter--{{.DiskLevel}}{{end}}">
+          <span class="lab">Диск</span>
+          <span class="meter__bar"><i style="width: {{.DiskPct}}%"></i></span>
+          <span class="meter__val">{{.DiskPct}} %</span>
+        </div>
+        <div class="meter {{if .MemLevel}}meter--{{.MemLevel}}{{end}}">
+          <span class="lab">Память</span>
+          <span class="meter__bar"><i style="width: {{.MemPct}}%"></i></span>
+          <span class="meter__val">{{.MemPct}} %</span>
+        </div>
+        <div class="meter {{if .LoadLvl}}meter--{{.LoadLvl}}{{end}}">
+          <span class="lab">Нагрузка</span>
+          <span class="meter__bar"><i style="width: {{.LoadPct}}%"></i></span>
+          <span class="meter__val">{{printf "%.2f" .Metric.Load1}}</span>
+        </div>
+      </div>
+
+      {{range .Interfaces}}
+      <div class="card__foot{{if and (ne .Status "gone") (ne .Mode "own")}} card__foot--quiet{{end}}">
+        <a class="mono small" href="/interfaces/{{.ID}}">{{.Name}}</a>
+        {{if eq .Status "gone"}}<span class="pill pill--warn">исчез с сервера</span>
+        {{else}}
+          {{if eq .Mode "own"}}<span class="pill pill--ok">управление</span>
+          {{else}}<span class="pill">наблюдение</span>{{end}}
+          {{if not .UnitActive}}<span class="pill pill--crit">не поднят</span>{{end}}
+        {{end}}
+        <span class="row__val push">{{.Online}} / {{.Peers}} онлайн</span>
+      </div>
+      {{end}}
+    </article>
+    {{end}}
+
+    {{/* Выведенные из парка идут последними в том же списке: машина всё ещё числится, но
+         показана приглушённой, и отсюда же её возвращают или удаляют (FR-10.6, FR-10.7). */}}
+    {{range .Retired}}
+    <article class="card card--gone">
+      <div class="card__head">
+        <span class="ico"><svg><use href="#i-server"/></svg></span>
+        <span class="card__who">
+          <a class="card__title" href="/servers/{{.Slug}}">{{flag .CountryOrGuess}} {{.Title}}</a>
+          <span class="row__sub mono">{{.Slug}} · выведен {{age .RetiredAt}} назад</span>
+        </span>
+        <span class="pill push">выведен</span>
+      </div>
+      <p class="card__say">
+        {{if .Left.Devices}}Панель его не опрашивает. На нём осталось {{plural .Left.Devices "устройство" "устройства" "устройств"}}
+        у {{plural .Left.Users "пользователя" "пользователей" "пользователей"}} — эти конфиги уже не работают.
+        {{else}}Панель его не опрашивает, устройств на нём не осталось — можно удалять.{{end}}
+      </p>
+      <div class="card__foot">
+        <form method="post" action="/servers/{{.Slug}}/return">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <button class="btn btn--sm" type="submit">Вернуть в парк</button>
+        </form>
+        <form method="post" action="/servers/{{.Slug}}/delete">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <button class="btn btn--sm btn--danger" type="submit"
+                  onclick="return confirm('Убрать {{.Title}} из панели? Уйдут интерфейсы ({{.Left.Interfaces}}), пиры ({{.Left.Peers}}), устройства ({{.Left.Devices}}) и их история трафика. Пользователи останутся. Отменить это нельзя.')">Удалить из панели</button>
+        </form>
+      </div>
+    </article>
+    {{end}}
+
+    {{if and (not .Servers) (not .Retired)}}
+    <p class="muted">Серверов пока нет.</p>
+    {{end}}
+  </div>
+
+  <section class="card">
+    <div class="card__head">
+      <h2 class="card__title">Кто грузит канал сейчас</h2>
+      <span class="pill push">{{.DevicesOn}} из {{.Devices}} в туннеле</span>
+    </div>
+    <div class="rows mt-xs">
+      {{range .Top}}
+      <div class="row">
+        <span class="dot {{if .Online}}dot--ok{{end}}"></span>
+        <span class="row__main">
+          <span class="row__name">{{.Name}}</span>
+          <span class="row__sub">{{if .User}}{{.User}}{{else}}пир без владельца{{end}}</span>
+        </span>
+        <span class="row__val">{{bps .TxBps}} ↓<br><span class="muted">{{bps .RxBps}} ↑</span></span>
+      </div>
+      {{else}}
+      <p class="muted">За последнюю минуту трафика не было.</p>
+      {{end}}
+      {{if .TopRest}}<div class="row"><span class="dot"></span><span class="row__main"><span class="row__name muted">и ещё {{.TopRest}} — медленнее</span></span></div>{{end}}
+    </div>
+  </section>
+</div>
+{{end}}

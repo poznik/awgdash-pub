@@ -1,0 +1,57 @@
+{{define "orphans.html"}}
+{{template "head" .}}
+<main class="page">
+  <a class="btn btn--sm back-link" href="/users">← Пользователи</a>
+  {{template "flash" .}}
+
+  <div class="listhead mt">
+    <h1>Пиры-сироты</h1>
+    <span class="pill">{{.Orphans}}</span>
+  </div>
+  <p class="small muted mt-xs">
+    Эти пиры стоят на интерфейсах, но панель не знает, чьи они: так приходят пиры из чужих панелей
+    и из ручной правки конфига. Приватного ключа у панели нет — выдать по ним конфиг нельзя, можно
+    только записать пира за человеком, чтобы он перестал считаться чужим. Пир, за которым никого
+    нет, сверка снимает с интерфейса как лишний.
+  </p>
+
+  {{if .OrphanPeers}}
+  <div class="stack mt">
+    {{range .OrphanPeers}}
+    <section class="card">
+      <div class="card__head">
+        <span class="ico"><svg><use href="#i-server"/></svg></span>
+        <span class="card__who">
+          <span class="card__title mono">{{.AllowedIPs}}</span>
+          <span class="row__sub mono">{{short .PublicKey}}</span>
+        </span>
+        <span class="row__val push">{{flag .Country}} {{.ServerTitle}} · <a class="mono" href="/interfaces/{{.InterfaceID}}">{{.Interface}}</a></span>
+      </div>
+      <div class="card__foot">
+        <span class="pill{{if .InConf}}{{else}} pill--warn{{end}}">{{if .InConf}}есть в конфиге{{else}}только в рантайме{{end}}</span>
+        {{if .HasPSK}}<span class="pill">PSK</span>{{end}}
+        <span class="row__val">{{if .LastHandshake.IsZero}}рукопожатий не было{{else}}последнее рукопожатие {{age .LastHandshake}} назад{{end}}</span>
+        <span class="row__val push" title="за сутки">{{bytes .Tx24}} ↓ · <span class="muted">{{bytes .Rx24}} ↑</span></span>
+      </div>
+      <form class="form mt" method="post" action="/interfaces/{{.InterfaceID}}/adopt">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <input type="hidden" name="public_key" value="{{.PublicKey}}">
+        <input type="hidden" name="back" value="/users/orphans">
+        <label>Кому записать
+          <select name="user_id">
+            <option value="">— выберите человека —</option>
+            {{range $.Users}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+          </select>
+        </label>
+        <label>Имя устройства<input type="text" name="name" value="{{adoptname .PublicKey}}" maxlength="32"></label>
+        <div class="btns wide"><button class="btn btn--sm btn--go" type="submit">Записать за человеком</button></div>
+      </form>
+    </section>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="card card--flat mt"><p class="muted">Ничьих пиров в парке нет — у каждого пира есть устройство и владелец.</p></div>
+  {{end}}
+</main>
+{{template "foot" .}}
+{{end}}

@@ -1,0 +1,279 @@
+{{define "interfaces.html"}}
+{{template "head" .}}
+<main class="page">
+
+{{if .Selected}}
+{{with .Selected}}
+  <a class="btn btn--sm back-link" href="/servers/{{$.ServerSlug}}">← {{$.ServerTitle}}</a>
+  {{template "flash" $}}
+
+  <section class="card mt">
+    <div class="card__head">
+      <span class="ico{{if eq .Status "gone"}} ico--warn{{else if not .UnitActive}} ico--crit{{else if eq .Mode "own"}} ico--ok{{end}}"><svg><use href="#i-server"/></svg></span>
+      <span class="card__who">
+        <h1 class="who__name mono">{{.Name}}</h1>
+        <span class="row__sub">{{$.IfaceSay}}</span>
+      </span>
+      <span class="pill{{if eq .Status "gone"}} pill--warn{{else if not .UnitActive}} pill--crit{{else if eq .Mode "own"}} pill--ok{{end}} push">
+        <span class="dot{{if eq .Status "gone"}} dot--warn{{else if not .UnitActive}} dot--crit{{else if eq .Mode "own"}} dot--ok{{end}}"></span>
+        {{if eq .Status "gone"}}исчез с сервера{{else if not .UnitActive}}не поднят{{else if eq .Mode "own"}}управление{{else}}наблюдение{{end}}
+      </span>
+    </div>
+    <div class="card__foot">
+      <span class="pill mono">{{.Subnet}}</span>
+      <span class="pill mono">udp/{{.ListenPort}}</span>
+      <span class="pill">MTU {{.MTU}}</span>
+      {{if deref .LastVerifyOK}}<span class="pill pill--ok">обфускация сходится</span>{{else}}<span class="pill pill--crit">обфускация расходится</span>{{end}}
+      {{if .Unassigned}}<span class="pill pill--warn">{{plural .Unassigned "пир" "пира" "пиров"}} без владельца</span>{{end}}
+      <span class="row__val push">сверка {{age .LastVerifiedAt}} назад</span>
+    </div>
+  </section>
+
+  <div class="cols mt">
+    <div class="stack">
+      <div data-live="/live/interfaces/{{.ID}}">{{template "live-interface" $}}</div>
+
+      <section class="card">
+        <div class="card__head">
+          <h2 class="card__title">Трафик · {{$.Range.Title}}</h2>
+          <span class="btns push">
+            {{range $.Ranges}}<a class="btn btn--sm {{if eq .Key $.Range.Key}}btn--on{{end}}" {{if eq .Key $.Range.Key}}aria-current="page"{{end}} href="{{$.RangeBase}}?range={{.Key}}">{{.Title}}</a>{{end}}
+          </span>
+        </div>
+        <div class="mt">{{template "chart" .Chart}}</div>
+        <div class="rows mt">
+          <div class="row"><span class="row__main"><span class="row__name">За сутки</span></span><span class="row__val">{{bytes .Totals.DayTx}} ↓ · {{bytes .Totals.DayRx}} ↑</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">За месяц</span></span><span class="row__val">{{bytes .Totals.MonthTx}} ↓ · {{bytes .Totals.MonthRx}} ↑</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">За всё время</span></span><span class="row__val">{{bytes .Totals.AllTx}} ↓ · {{bytes .Totals.AllRx}} ↑</span></div>
+        </div>
+      </section>
+
+      {{template "peers-table" $}}
+
+      <details class="card">
+        <summary class="card__title">Адреса входа</summary>
+        <p class="small muted mt-xs">Их видят клиенты в строке <span class="mono">Endpoint</span>. Основной подставляется по умолчанию, остальные предлагаются на экране выдачи — запасной порт или второе имя на время переезда.</p>
+        <form method="post" action="/interfaces/{{.ID}}/endpoints" class="mt-xs">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          {{range $i, $e := .Endpoints}}
+          <div class="ep">
+            <label>метка<input type="text" name="label" value="{{$e.Label}}" maxlength="32"></label>
+            <label>порт<input type="number" name="port" value="{{$e.Port}}" min="1" max="65535"></label>
+            <label class="check ep__main"><input type="radio" name="primary" value="{{$i}}" {{if $e.Primary}}checked{{end}}> основной</label>
+            <label class="ep__wide">имя или адрес<input type="text" name="host" value="{{$e.Host}}" maxlength="120"></label>
+          </div>
+          {{end}}
+          <div class="ep">
+            <label>метка<input type="text" name="label" placeholder="запасной порт" maxlength="32"></label>
+            <label>порт<input type="number" name="port" placeholder="{{.ListenPort}}" min="1" max="65535"></label>
+            <label class="check ep__main"><input type="radio" name="primary" value="{{len .Endpoints}}"> основной</label>
+            <label class="ep__wide">имя или адрес<input type="text" name="host" placeholder="vpn.example.com" maxlength="120"></label>
+          </div>
+          <div class="btns mt-xs"><button class="btn btn--sm btn--go" type="submit">Сохранить адреса</button></div>
+        </form>
+        <p class="small muted">Пустая строка «имя или адрес» удаляет вариант.</p>
+      </details>
+
+      <details class="card">
+        <summary class="card__title">Умолчания для новых конфигов</summary>
+        <p class="small muted mt-xs">Панель подставляет их при выдаче конфига там, где у устройства нет своего значения. Смена дойдёт до людей со следующей выдачей, в том числе при повторной выдаче существующему устройству; уже скачанные файлы и переопределения на устройствах остаются как были.</p>
+        <form method="post" action="/interfaces/{{.ID}}/defaults" class="form mt-xs">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <label class="wide-sm">DNS<input type="text" name="dns" value="{{.DefaultDNS}}" placeholder="пусто — строки DNS в конфиге не будет" maxlength="120"></label>
+          <label>Keepalive<input type="number" name="keepalive" value="{{.DefaultKeepalive}}" min="0" max="65535"></label>
+          <label class="wide">AllowedIPs<input type="text" name="allowed_ips" value="{{.DefaultAllowedIPs}}" placeholder="0.0.0.0/0, ::/0" maxlength="200" required></label>
+          <div class="btns wide"><button class="btn btn--sm btn--go" type="submit">Сохранить умолчания</button></div>
+        </form>
+        <p class="small muted">Несколько адресов — через запятую; DNS принимается только адресами. MTU и обфускация приходят с интерфейса, панель их не меняет.</p>
+      </details>
+    </div>
+
+    <aside class="stack">
+      {{if eq .Status "gone"}}
+      <section class="card card--warn">
+        <div class="card__head"><h2 class="card__title">Интерфейса нет на сервере</h2></div>
+        <p class="card__say">Конфиг {{.ConfPath}} с машины сняли, и опрашивать больше нечего. Записи панель держит на случай, что интерфейс вернётся: тогда он снова оживёт сам.</p>
+        <p class="small muted">Убрать — значит потерять {{plural $.Gone.Peers "пир" "пира" "пиров"}}, {{plural $.Gone.Devices "устройство" "устройства" "устройств"}} и их историю трафика. Люди с такими конфигами уже никуда не подключаются.</p>
+        <form method="post" action="/interfaces/{{.ID}}/forget" class="mt-xs">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <button class="btn btn--sm btn--danger" type="submit" onclick="return confirm('Убрать {{.Name}} из панели вместе с {{plural $.Gone.Devices "устройством" "устройствами" "устройствами"}} и историей? Отменить это нельзя.')">Убрать из панели</button>
+        </form>
+      </section>
+      {{end}}
+      <section class="card {{if not (deref .LastVerifyOK)}}card--warn{{end}}">
+        <div class="card__head"><h2 class="card__title">Обслуживание</h2></div>
+        <p class="card__say">Редкие и тяжёлые операции. Панель не поднимает и не гасит интерфейс — этим занимается systemd.</p>
+
+        <div class="rows">
+          {{range .Readiness.Checks}}
+          <div class="row">
+            <span class="dot {{if .OK}}dot--ok{{else}}dot--crit{{end}}"></span>
+            <span class="row__main"><span class="row__name">{{.Title}}</span>{{if .Note}}<span class="row__sub">{{.Note}}</span>{{end}}</span>
+          </div>
+          {{end}}
+        </div>
+
+        <div class="btns mt">
+          {{if eq .Mode "own"}}
+            <a class="btn btn--sm {{if $.Plan}}btn--on{{end}}" href="/interfaces/{{.ID}}?plan=1#maintenance">Что изменит сверка</a>
+            <form method="post" action="/interfaces/{{.ID}}/mode">
+              <input type="hidden" name="csrf" value="{{$.CSRF}}">
+              <input type="hidden" name="mode" value="observe">
+              <button class="btn btn--sm" type="submit" onclick="return confirm('Панель перестанет править пиры {{.Name}}. Перейти в observe?')">Вернуть в observe</button>
+            </form>
+          {{else}}
+            <form method="post" action="/interfaces/{{.ID}}/mode">
+              <input type="hidden" name="csrf" value="{{$.CSRF}}">
+              <input type="hidden" name="mode" value="own">
+              <button class="btn btn--sm btn--go" type="submit" {{if not .Readiness.Ready}}disabled title="сначала пройдут все проверки"{{end}}>Отдать панели</button>
+            </form>
+          {{end}}
+        </div>
+
+        {{if $.PlanErr}}<p class="flash flash--err mt">{{$.PlanErr}}</p>{{end}}
+        {{if $.Plan}}
+        <div class="note{{if not $.Plan.Changed}} note--accent{{end}} mt" id="maintenance">
+          {{if $.Plan.Changed}}
+          <div class="card__title">Сверка изменит</div>
+          <div class="rows mt-xs">
+            {{range $.Plan.Added}}<div class="row"><span class="dot dot--ok"></span><span class="row__main"><span class="row__name">поставит {{index $.PlanKeys .}}</span><span class="row__sub mono">{{short .}}</span></span></div>{{end}}
+            {{range $.Plan.Updated}}<div class="row"><span class="dot dot--warn"></span><span class="row__main"><span class="row__name">обновит {{index $.PlanKeys .}}</span><span class="row__sub mono">{{short .}}</span></span></div>{{end}}
+            {{range $.Plan.Removed}}<div class="row"><span class="dot dot--crit"></span><span class="row__main"><span class="row__name">снимет {{index $.PlanKeys .}}</span><span class="row__sub mono">{{short .}}</span></span></div>{{end}}
+          </div>
+          <p class="small muted mt-xs">Не тронет: {{len $.Plan.Untouched}}.</p>
+          <form method="post" action="/interfaces/{{.ID}}/reconcile" class="mt-xs">
+            <input type="hidden" name="csrf" value="{{$.CSRF}}">
+            <button class="btn btn--sm btn--go" type="submit">Привести к панели</button>
+          </form>
+          {{else}}
+          <div class="card__title">Расхождений нет</div>
+          <p class="small">Интерфейс уже совпадает с панелью: {{plural (len $.Plan.Untouched) "пир" "пира" "пиров"}} на месте.</p>
+          {{end}}
+        </div>
+        {{end}}
+
+        <p class="small muted mt">То же из терминала: <span class="mono">awgdash reconcile --interface {{.Name}} --dry-run</span></p>
+      </section>
+
+      <section class="card">
+        <div class="card__head"><h2 class="card__title">Параметры</h2></div>
+        <div class="rows mt-xs">
+          <div class="row"><span class="row__main"><span class="row__name">Конфиг</span></span><span class="row__val mono small">{{.ConfPath}}</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">Ключ сервера</span></span><span class="row__val mono small">{{short .ServerPublicKey}}</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">Адрес сервера</span></span><span class="row__val mono">{{.ServerAddress}}</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">PSK</span></span><span class="row__val">{{if .PSKEnabled}}включён{{else}}выключен{{end}}</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">SaveConfig</span></span><span class="row__val">{{if .SaveConfig}}true — опасно{{else}}false{{end}}</span></div>
+        </div>
+      </section>
+
+      <details class="card">
+        <summary class="card__title">Обфускация · только чтение</summary>
+        <p class="small muted mt-xs">Панель эти параметры не меняет: они приходят из конфига интерфейса и сверяются с рантаймом.</p>
+        <div class="rows mt-xs">
+          {{range .Obf}}<div class="row"><span class="row__main"><span class="row__name mono">{{.Key}}</span></span><span class="row__val mono small">{{.Value}}</span></div>{{end}}
+        </div>
+      </details>
+    </aside>
+  </div>
+{{end}}
+
+{{else}}
+  <div class="listhead"><h1>Интерфейсы</h1><span class="pill">{{len .Interfaces}}</span></div>
+  <div class="rows card card--flat mt">
+    {{range .Interfaces}}
+    <a class="row" href="/interfaces/{{.ID}}">
+      <span class="dot{{if not .UnitActive}} dot--crit{{else if eq .Mode "own"}} dot--ok{{end}}"></span>
+      <span class="row__main"><span class="row__name mono">{{.Name}}</span><span class="row__sub">{{.Subnet}} · udp/{{.ListenPort}} · {{if eq .Mode "own"}}управление{{else}}наблюдение{{end}}</span></span>
+      <span class="row__val">{{if .UnitActive}}поднят{{else}}не поднят{{end}}</span>
+    </a>
+    {{else}}
+    <p class="muted">Интерфейсов пока нет.</p>
+    {{end}}
+  </div>
+{{end}}
+</main>
+{{template "foot" .}}
+{{end}}
+
+{{define "live-interface"}}
+{{with .Selected}}
+<section class="card">
+  <div class="card__head">
+    <h2 class="card__title">Сейчас</h2>
+    <span class="pill push">{{.Online}} из {{.PeerTotal}} в туннеле</span>
+  </div>
+  <div class="grid3 mt">
+    <div class="meter"><span class="lab">В туннеле</span><span class="meter__val">{{.Online}} / {{.PeerTotal}}</span></div>
+    <div class="meter"><span class="lab">Скачивают</span><span class="meter__val">{{bps .Now.Speed.TxBps}}</span></div>
+    <div class="meter"><span class="lab">Отдают</span><span class="meter__val">{{bps .Now.Speed.RxBps}}</span></div>
+  </div>
+  {{if .Now.Top}}
+  <div class="rows mt">
+    {{range .Now.Top}}
+    <div class="row">
+      <span class="dot {{if .Online}}dot--ok dot--live{{end}}"></span>
+      <span class="row__main"><span class="row__name">{{.Name}}</span><span class="row__sub">{{if .User}}{{.User}}{{else}}пир без владельца{{end}}</span></span>
+      <span class="row__val">{{bps .TxBps}} ↓<br><span class="muted">{{bps .RxBps}} ↑</span></span>
+    </div>
+    {{end}}
+  </div>
+  {{else}}
+  <p class="muted mt">За последнюю минуту трафика не было.</p>
+  {{end}}
+</section>
+{{end}}
+{{end}}
+
+{{/* Таблица пиров живой не делается: шестьдесят строк — это 26 КБ при бюджете фрагмента 5 (§7.1),
+     а хендшейки в ней меняются медленнее, чем скорость в блоке «Сейчас». */}}
+{{define "peers-table"}}
+{{with .Selected}}
+<section class="card">
+  <div class="card__head">
+    <h2 class="card__title">Пиры</h2>
+    <span class="pill push">{{if gt .PeerPages 1}}{{len .Peers}} из {{.PeerTotal}}{{else}}{{.PeerTotal}}{{end}}</span>
+  </div>
+  <div class="tbl mt">
+    <table>
+      <thead><tr><th>устройство</th><th>адрес</th><th>состояние</th><th>хендшейк</th><th class="num">за сутки ↓↑</th><th></th></tr></thead>
+      <tbody>
+      {{range .Peers}}
+        <tr>
+          <td>{{if .Device}}<a href="/devices/{{.DeviceID.Int64}}">{{.Device}}</a> <span class="muted small">{{.User}}</span>{{else}}<span class="muted">без владельца</span>{{end}}</td>
+          <td class="mono">{{.AllowedIPs}}</td>
+          <td><span class="dev__state"><span class="dot dot--{{.Class}}{{if eq .State "онлайн"}} dot--live{{end}}"></span>{{.State}}</span></td>
+          <td class="mono">{{age .LastHandshake}}</td>
+          <td class="num">{{bytes .Tx24}} / {{bytes .Rx24}}</td>
+          <td>
+            {{if not .Device}}
+            <form method="post" action="/interfaces/{{$.Selected.ID}}/adopt" class="btns">
+              <input type="hidden" name="csrf" value="{{$.CSRF}}">
+              <input type="hidden" name="public_key" value="{{.PublicKey}}">
+              <select name="user_id" required>
+                <option value="">кому отдать…</option>
+                {{range $.Users}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+              </select>
+              <input type="text" name="name" maxlength="32" placeholder="{{adoptname .PublicKey}}" title="имя устройства; пусто — подставится подсказка">
+              <button class="btn btn--sm" type="submit">Привязать</button>
+            </form>
+            {{end}}
+          </td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{if gt .PeerPages 1}}
+  <div class="btns mt">
+    {{if gt .PeerPage 1}}<a class="btn btn--sm" href="/interfaces/{{.ID}}?peers={{sub .PeerPage 1}}">← назад</a>{{end}}
+    <span class="pill">{{.PeerPage}} из {{.PeerPages}}</span>
+    {{if lt .PeerPage .PeerPages}}<a class="btn btn--sm" href="/interfaces/{{.ID}}?peers={{add .PeerPage 1}}">дальше →</a>{{end}}
+    <span class="small muted">сортировка по свежести хендшейка</span>
+  </div>
+  {{end}}
+  {{if .Unassigned}}
+  <p class="small muted mt-xs">У пиров без владельца панель не знает приватного ключа: конфиг им не выдать, но привязка к пользователю покажет, чей это трафик.</p>
+  {{end}}
+</section>
+{{end}}
+{{end}}

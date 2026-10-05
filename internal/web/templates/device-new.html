@@ -1,0 +1,79 @@
+{{define "device-new.html"}}
+{{template "head" .}}
+<main class="page">
+  <a class="btn btn--sm back-link" href="/users/{{.Selected.ID}}">← {{.Selected.Name}}</a>
+  {{template "flash" .}}
+  <section class="card mt">{{template "device-form" .}}</section>
+</main>
+{{template "foot" .}}
+{{end}}
+
+{{define "device-form"}}
+{{$u := .Selected}}
+<form class="modal__form" method="post" action="/users/{{$u.ID}}/devices/new">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <h2 class="card__title">Новое устройство · {{$u.Name}}</h2>
+
+  {{if not .Ifaces}}
+  <p class="note">Сажать устройство некуда: панель не управляет ни одним интерфейсом парка.
+  Возьмите интерфейс под управление на его странице — на наблюдаемом пир не встанет, и человек получит конфиг, который не подключится.</p>
+  <div class="btns"><a class="btn" href="/users/{{$u.ID}}" data-modal-close>Назад</a></div>
+  {{else}}
+
+  {{/* Имя — первым полем и с фокусом при открытии: его правят чаще всего, а имя по умолчанию
+       показано серым и живёт на сервере, поэтому своё название пишется поверх пустого поля. */}}
+  <label>Имя устройства
+    <input type="text" name="name" placeholder="Устройство {{add (len $u.Devices) 1}}" maxlength="32" autofocus>
+  </label>
+
+  {{if gt (len .Ifaces) 1}}
+  <fieldset class="pick">
+    <legend>Через какой сервер</legend>
+    {{range $i, $c := .Ifaces}}
+    <label class="pick__opt">
+      <input type="radio" name="interface_id" value="{{$c.ID}}" {{if eq $i 0}}checked{{end}}
+             data-dns="{{$c.Hints.DNS}}" data-mtu="{{$c.Hints.MTU}}"
+             data-ka="{{$c.Hints.Keepalive}}" data-ka-router="{{$c.Hints.KeepaliveRouter}}"
+             data-ip="{{$c.Hints.AllowedIPs}}" data-ip-router="{{$c.Hints.AllowedIPsRouter}}">
+      <span class="pick__text">{{$c.Label}}<small>{{$c.Name}} · {{$c.Subnet}}</small></span>
+    </label>
+    {{end}}
+  </fieldset>
+  {{else}}
+    {{range .Ifaces}}<input type="hidden" name="interface_id" value="{{.ID}}"
+             data-dns="{{.Hints.DNS}}" data-mtu="{{.Hints.MTU}}"
+             data-ka="{{.Hints.Keepalive}}" data-ka-router="{{.Hints.KeepaliveRouter}}"
+             data-ip="{{.Hints.AllowedIPs}}" data-ip-router="{{.Hints.AllowedIPsRouter}}">{{end}}
+  {{end}}
+
+  <fieldset class="pick">
+    <legend>Что это за устройство</legend>
+    <label class="pick__opt">
+      <input type="radio" name="preset" value="phone" checked>
+      <span class="pick__text">Телефон или ноутбук<small>весь трафик в туннель</small></span>
+    </label>
+    <label class="pick__opt">
+      <input type="radio" name="preset" value="router">
+      <span class="pick__text">Роутер<small>исключает отправку трафика локальной сети в VPN</small></span>
+    </label>
+  </fieldset>
+
+  <details>
+    <summary class="small muted">Тонкости: DNS, MTU, keepalive, AllowedIPs</summary>
+    <p class="small muted mt-xs">Серым показано то, что панель подставит сама. Заполненное поле переопределяет подставленное только для этого устройства.</p>
+    <div class="form mt-xs" data-hints>
+      <label>DNS<input type="text" name="dns" placeholder="{{.DefaultHints.DNS}}"></label>
+      <label>MTU<input type="number" name="mtu" min="1000" max="1500" placeholder="{{.DefaultHints.MTU}}"></label>
+      <label>Keepalive<input type="number" name="keepalive" min="0" max="120" placeholder="{{.DefaultHints.Keepalive}}"></label>
+      <label class="wide">AllowedIPs<input type="text" name="allowed_ips" placeholder="{{.DefaultHints.AllowedIPs}}"></label>
+    </div>
+  </details>
+
+  <div class="btns">
+    <button class="btn btn--go" type="submit">Создать</button>
+    <a class="btn" href="/users/{{$u.ID}}" data-modal-close>Отмена</a>
+  </div>
+  <p class="small muted">Сразу после создания откроется QR и файл конфига.</p>
+  {{end}}
+</form>
+{{end}}

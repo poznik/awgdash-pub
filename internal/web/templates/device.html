@@ -1,0 +1,165 @@
+{{define "device.html"}}
+{{template "head" .}}
+<main class="page">
+  <a class="btn btn--sm back-link" href="/users/{{.User.ID}}">← {{.User.Name}}</a>
+  {{template "flash" .}}
+
+  <section class="card mt">
+    <div class="card__head">
+      <span class="ico ico--{{if .Level}}{{.Level}}{{end}}"><svg><use href="#i-{{preset .Device.Preset}}"/></svg></span>
+      <span class="card__who">
+        <h1 class="who__name">{{.Device.Name}}</h1>
+        <span class="row__sub">{{.Say}}</span>
+      </span>
+      <span class="btns push">
+        {{if .Device.HasKey}}
+        <a class="btn btn--go" href="/devices/{{.Device.ID}}/config">Показать QR</a>
+        <a class="btn" href="/devices/{{.Device.ID}}/conf">.conf</a>
+        {{else}}
+        <span class="pill" title="Пир усыновлён или импортирован без приватного ключа — собрать конфиг не из чего">конфиг недоступен</span>
+        {{end}}
+        <a class="btn" href="#edit" data-open="#edit">Изменить</a>
+        <details class="menu">
+          <summary class="btn btn--ico" title="Ещё" aria-label="Ещё">
+            <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>
+          </summary>
+          <div class="menu__list">
+            <a class="menu__item" href="/users/{{.User.ID}}">К пользователю</a>
+            <a class="menu__item" href="/interfaces/{{.Interface.ID}}">К интерфейсу</a>
+            {{if .Owners}}<a class="menu__item" href="#move" data-open="#move">Передать другому</a>{{end}}
+            {{if .Device.DeletedAt.IsZero}}
+            <form method="post" action="/devices/{{.Device.ID}}/status">
+              <input type="hidden" name="csrf" value="{{.CSRF}}">
+              <input type="hidden" name="status" value="{{if eq .Device.Status "active"}}disabled{{else}}active{{end}}">
+              <button class="menu__item" type="submit">{{if eq .Device.Status "active"}}Отключить{{else}}Включить{{end}}</button>
+            </form>
+            <form method="post" action="/devices/{{.Device.ID}}/rotate">
+              <input type="hidden" name="csrf" value="{{.CSRF}}">
+              <button class="menu__item" type="submit"
+                      onclick="return confirm('Ключи сменятся: прежний QR и все копии конфига перестанут работать сразу. Перевыпустить?')">Перевыпустить ключи</button>
+            </form>
+            <form method="post" action="/devices/{{.Device.ID}}/delete">
+              <input type="hidden" name="csrf" value="{{.CSRF}}">
+              <button class="menu__item menu__item--danger" type="submit"
+                      onclick="return confirm('Удалить «{{.Device.Name}}» и снять его пир? Адрес держится за ним 30 дней.')">Удалить</button>
+            </form>
+            {{else}}
+            <form method="post" action="/devices/{{.Device.ID}}/restore">
+              <input type="hidden" name="csrf" value="{{.CSRF}}">
+              <button class="menu__item" type="submit">Восстановить</button>
+            </form>
+            {{end}}
+          </div>
+        </details>
+      </span>
+    </div>
+    <div class="card__foot">
+      <span class="pill mono">{{.Device.Address}}</span>
+      <span class="pill">{{flag .Server.CountryOrGuess}} {{.Server.Title}} · {{.Interface.Name}}</span>
+      <span class="pill">{{if eq .Device.Preset "router"}}роутер{{else if eq .Device.Preset "custom"}}вручную{{else}}телефон или ноутбук{{end}}</span>
+      {{if .Device.Endpoint}}<span class="pill mono">{{.Device.Endpoint}}</span>{{end}}
+      <span class="row__val push">сейчас {{bps .Speed.TxBps}} ↓ · {{bps .Speed.RxBps}} ↑</span>
+    </div>
+  </section>
+
+  <div class="cols mt">
+    <section class="card">
+      <div class="card__head">
+        <h2 class="card__title">Трафик · {{.Range.Title}}</h2>
+        <span class="btns push">
+          {{range .Ranges}}<a class="btn btn--sm {{if eq .Key $.Range.Key}}btn--on{{end}}" {{if eq .Key $.Range.Key}}aria-current="page"{{end}} href="{{$.RangeBase}}?range={{.Key}}">{{.Title}}</a>{{end}}
+        </span>
+      </div>
+      <div class="mt">{{template "chart" .Chart}}</div>
+      {{if .Days}}
+      <h3 class="lab mt">По дням</h3>
+      <div class="tbl mt-xs">
+        <table>
+          <thead><tr><th>день</th><th class="num">принято</th><th class="num">отдано</th><th class="num">всего</th></tr></thead>
+          <tbody>
+          {{range .Days}}
+            <tr>
+              <td class="mono">{{date .Date}}</td>
+              <td class="num">{{bytes .Rx}}</td>
+              <td class="num">{{bytes .Tx}}</td>
+              <td class="num">{{bytes (add64 .Rx .Tx)}}</td>
+            </tr>
+          {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{end}}
+    </section>
+
+    <aside class="stack">
+      <section class="card">
+        <div class="card__head"><h2 class="card__title">Итоги</h2></div>
+        <div class="rows mt-xs">
+          <div class="row"><span class="row__main"><span class="row__name">За сутки</span></span><span class="row__val">{{bytes .Totals.DayTx}} ↓ · {{bytes .Totals.DayRx}} ↑</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">За неделю</span></span><span class="row__val">{{bytes .Totals.WeekTx}} ↓ · {{bytes .Totals.WeekRx}} ↑</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">За месяц</span></span><span class="row__val">{{bytes .Totals.MonthTx}} ↓ · {{bytes .Totals.MonthRx}} ↑</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">За всё время</span></span><span class="row__val">{{bytes .Totals.AllTx}} ↓ · {{bytes .Totals.AllRx}} ↑</span></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__head"><h2 class="card__title">Подробности</h2></div>
+        <div class="rows mt-xs">
+          <div class="row"><span class="row__main"><span class="row__name">Последний хендшейк</span></span><span class="row__val">{{age .Device.LastHandshake}}</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">Пир на интерфейсе</span></span><span class="row__val">{{if .Device.OnInterface}}да{{else}}нет{{end}}</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">Создано</span></span><span class="row__val">{{date .Device.CreatedAt}}</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">Конфиг выдавали</span></span><span class="row__val">{{.Device.IssueCount}} раз</span></div>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  {{template "device-edit" .}}
+  {{if and .Owners .Device.DeletedAt.IsZero}}{{template "device-move" .}}{{end}}
+</main>
+{{template "foot" .}}
+{{end}}
+
+{{define "device-edit"}}
+<details class="card" id="edit">
+  <summary class="card__title">Изменить устройство</summary>
+  <form class="form mt" method="post" action="/devices/{{.Device.ID}}/update" data-hints
+        data-dns="{{.Hints.DNS}}" data-mtu="{{.Hints.MTU}}"
+        data-ka="{{.Hints.Keepalive}}" data-ka-router="{{.Hints.KeepaliveRouter}}"
+        data-ip="{{.Hints.AllowedIPs}}" data-ip-router="{{.Hints.AllowedIPsRouter}}">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>Имя<input type="text" name="name" value="{{.Device.Name}}" required maxlength="32"></label>
+    <label>Тип
+      <select name="preset">
+        <option value="phone" {{if eq .Device.Preset "phone"}}selected{{end}}>телефон или ноутбук — весь трафик в туннель</option>
+        <option value="router" {{if eq .Device.Preset "router"}}selected{{end}}>роутер — исключает отправку трафика локальной сети в VPN</option>
+        <option value="custom" {{if eq .Device.Preset "custom"}}selected{{end}}>вручную</option>
+      </select>
+    </label>
+    <label>DNS<input type="text" name="dns" value="{{.Device.Overrides.DNS}}" placeholder="{{.Hints.DNS}}"></label>
+    <label>MTU<input type="number" name="mtu" value="{{if .Device.Overrides.MTU}}{{.Device.Overrides.MTU}}{{end}}" placeholder="{{.Hints.MTU}}" min="1000" max="1500"></label>
+    <label>Keepalive<input type="number" name="keepalive" value="{{if .Device.Overrides.Keepalive}}{{.Device.Overrides.Keepalive}}{{end}}" placeholder="{{if eq .Device.Preset "router"}}{{.Hints.KeepaliveRouter}}{{else}}{{.Hints.Keepalive}}{{end}}" min="0" max="120"></label>
+    <label class="wide">AllowedIPs<input type="text" name="allowed_ips" value="{{.Device.Overrides.AllowedIPs}}" placeholder="{{if eq .Device.Preset "router"}}{{.Hints.AllowedIPsRouter}}{{else}}{{.Hints.AllowedIPs}}{{end}}"></label>
+    <div class="wide"><button class="btn btn--go" type="submit">Сохранить</button></div>
+  </form>
+  <p class="small muted">Серым показано то, что панель подставит сама. Переопределения меняют только выдаваемый конфиг: на интерфейсе у пира остаётся адрес устройства.</p>
+</details>
+{{end}}
+
+{{define "device-move"}}
+<details class="card mt" id="move">
+  <summary class="card__title">Передать другому</summary>
+  <form class="form mt" method="post" action="/devices/{{.Device.ID}}/move">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label class="wide">Кому
+      <select name="user_id" required>
+        <option value="">выберите человека</option>
+        {{range .Owners}}{{if ne .ID $.User.ID}}<option value="{{.ID}}">{{.Name}} · {{plural .Devices "устройство" "устройства" "устройств"}}</option>{{end}}{{end}}
+      </select>
+    </label>
+    <label class="check wide"><input type="checkbox" name="raise_limit" checked> поднять его лимит устройств, если перенос его превысит</label>
+    <div class="wide"><button class="btn btn--go" type="submit">Передать</button></div>
+  </form>
+  <p class="small muted">Ключи, адрес и пир остаются прежними: на самом устройстве переустанавливать нечего. Имя, занятое у нового владельца, получит суффикс.</p>
+</details>
+{{end}}

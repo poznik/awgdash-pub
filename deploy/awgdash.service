@@ -1,0 +1,45 @@
+[Unit]
+Description=awgdash — панель управления AmneziaWG
+Documentation=https://github.com/poznik/awgdash-pub
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=awgdash
+Group=awgdash
+EnvironmentFile=/etc/awgdash/awgdash.env
+# Потолок кучи (ТЗ §7.1: ≤ 128 МБ под нагрузкой). Без него Go отдаёт память ОС неохотно,
+# и после разовой тяжёлой страницы RSS остаётся высоким.
+Environment=GOMEMLIMIT=96MiB
+MemoryMax=192M
+# Роль берётся из AWGDASH_MODE (hub или node): один юнит на обе, чтобы узел и хаб
+# ставились одинаково.
+ExecStart=/opt/awgdash/awgdash
+Restart=always
+RestartSec=3
+# Права: netlink к модулю (awg show/set), чтение и запись конфигов root:0600.
+# DAC_OVERRIDE — открыть чужой файл, FOWNER — переименовать его в каталоге root, CHOWN — вернуть
+# новому файлу владельца root: конфиг интерфейса обязан остаться root:0600 (режим own, M2).
+AmbientCapabilities=CAP_NET_ADMIN CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_FOWNER CAP_CHOWN
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_FOWNER CAP_CHOWN
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/awgdash /etc/amnezia/amneziawg
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

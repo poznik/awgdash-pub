@@ -1,0 +1,64 @@
+{{define "events.html"}}
+{{template "head" .}}
+<main class="page">
+  {{template "flash" .}}
+  <div class="listhead">
+    <h1>Журнал</h1>
+    <span class="pill">{{.Total}}</span>
+  </div>
+
+  <div class="controls mt">
+    <div class="btns">
+      <a class="btn btn--sm {{if eq .Tab "events"}}btn--on{{end}}" {{if eq .Tab "events"}}aria-current="page"{{end}} href="/events">Что происходило</a>
+      <a class="btn btn--sm {{if eq .Tab "audit"}}btn--on{{end}}" {{if eq .Tab "audit"}}aria-current="page"{{end}} href="/events?tab=audit">Что делали в панели</a>
+    </div>
+  </div>
+
+  {{if eq .Tab "audit"}}
+  <section class="card mt">
+    <p class="card__say">Действия администратора и портала: кто, что и когда. Ключи и конфиги в журнал не попадают.</p>
+    <div class="rows">
+      {{range .Audit}}
+      <div class="row">
+        <span class="dot"></span>
+        <span class="row__main">
+          <span class="row__name">{{action .Action}}</span>
+          <span class="row__sub">{{.Actor}}{{if .TargetType}} · {{.TargetType}} {{.TargetID}}{{end}}{{range $k, $v := .Details}} · {{$k}}: {{$v}}{{end}}</span>
+        </span>
+        <span class="row__val">{{age .TS}} назад<br><span class="muted mono small">{{.IP}}</span></span>
+      </div>
+      {{else}}
+      <p class="muted">Пока пусто.</p>
+      {{end}}
+    </div>
+  </section>
+  {{else}}
+  <section class="card mt">
+    <p class="card__say">То, что панель заметила сама: подключения, всплески, пороги, падения и возвраты.</p>
+    <div class="rows">
+      {{range .Events}}
+      <div class="row">
+        <span class="dot {{if eq .Severity "crit"}}dot--crit{{else if eq .Severity "warn"}}dot--warn{{end}}"></span>
+        <span class="row__main">
+          <span class="row__name">{{.Message}}</span>
+          <span class="row__sub mono">{{.Kind}}</span>
+        </span>
+        <span class="row__val">{{age .TS}} назад<br><span class="muted small">{{when .TS}}</span></span>
+      </div>
+      {{else}}
+      <p class="muted">Пока пусто.</p>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+
+  {{if gt .Pages 1}}
+  <div class="btns mt">
+    {{if gt .Page 1}}<a class="btn btn--sm" href="/events?tab={{.Tab}}&amp;page={{sub .Page 1}}">← назад</a>{{end}}
+    <span class="pill">{{.Page}} из {{.Pages}}</span>
+    {{if lt .Page .Pages}}<a class="btn btn--sm" href="/events?tab={{.Tab}}&amp;page={{add .Page 1}}">дальше →</a>{{end}}
+  </div>
+  {{end}}
+</main>
+{{template "foot" .}}
+{{end}}

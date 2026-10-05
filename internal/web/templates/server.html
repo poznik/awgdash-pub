@@ -1,0 +1,181 @@
+{{define "server.html"}}
+{{template "head" .}}
+<main class="page">
+  <a class="btn btn--sm back-link" href="/">← Парк</a>
+  {{template "flash" .}}
+
+  <section class="card mt {{if eq .Level "warn"}}card--warn{{end}}">
+    <div class="card__head">
+      <span class="ico ico--{{.Level}}"><svg><use href="#i-server"/></svg></span>
+      <span class="card__who">
+        <h1 class="who__name">{{flag .Server.CountryOrGuess}} {{.Server.Title}}</h1>
+        <span class="row__sub mono">{{.Server.Slug}}{{if .Server.PublicIP}} · {{.Server.PublicIP}}{{end}}</span>
+      </span>
+      <span class="pill pill--{{.Level}} push"><span class="dot dot--{{.Level}}"></span>{{.LevelWord}}</span>
+    </div>
+    <p class="card__say">{{.Say}}</p>
+    <div class="card__foot">
+      <span class="pill">{{.Server.Kernel}}</span>
+      <span class="pill">awg {{.Server.AWGVersion}}</span>
+      {{if .Server.RebootRequired}}<span class="pill pill--warn">ядро ждёт перезагрузки</span>{{end}}
+      {{if .Remote}}<span class="pill">узел через туннель</span>{{end}}
+      <span class="row__val push">связь {{age .Server.LastSeenAt}} назад</span>
+    </div>
+  </section>
+
+  <h2 class="sec">Интерфейсы</h2>
+  <div class="grid2">
+    {{range .Ifaces}}
+    <a class="card dev{{if and (ne .Status "gone") (ne .Mode "own")}} card--quiet{{end}}" href="/interfaces/{{.ID}}">
+      <div class="card__head">
+        <span class="ico{{if not .UnitActive}} ico--crit{{else if eq .Mode "own"}} ico--ok{{end}}"><svg><use href="#i-server"/></svg></span>
+        <span class="card__who">
+          <span class="card__title mono">{{.Name}}</span>
+          <span class="row__sub mono">{{.Subnet}} · udp/{{.ListenPort}} · MTU {{.MTU}}</span>
+        </span>
+      </div>
+      <p class="dev__state">
+        <span class="dot{{if not .UnitActive}} dot--crit{{else if eq .Mode "own"}} dot--ok{{end}}"></span>
+        {{if eq .Status "gone"}}исчез с сервера{{else if not .UnitActive}}не поднят{{else if eq .Mode "own"}}управление{{else}}наблюдение{{end}}
+        {{if .Unassigned}} · {{plural .Unassigned "пир" "пира" "пиров"}} без владельца{{end}}
+      </p>
+      <div class="dev__nums">
+        <span><span class="lab">В туннеле</span><span class="meter__val">{{.Online}} / {{.Peers}}</span></span>
+        <span><span class="lab">За сутки</span><span class="meter__val">{{bytes .Tx24}} ↓</span></span>
+        <span><span class="lab">Устройств</span><span class="meter__val">{{.Devices}}</span></span>
+      </div>
+    </a>
+    {{else}}
+    <p class="muted">Интерфейсов на этом сервере нет.</p>
+    {{end}}
+  </div>
+
+  <div class="cols mt">
+    <div class="stack">
+      <section class="card">
+        <div class="card__head"><h2 class="card__title">Машина за сутки</h2></div>
+        <div class="grid3 mt">
+          <div class="meter {{if .CPULvl}}meter--{{.CPULvl}}{{end}}">
+            <span class="lab">Процессор</span>
+            <span class="meter__bar"><i style="width: {{.CPUPct}}%"></i></span>
+            <span class="meter__val">{{.CPUPct}} %</span>
+          </div>
+          <div class="meter {{if .MemLevel}}meter--{{.MemLevel}}{{end}}">
+            <span class="lab">Память</span>
+            <span class="meter__bar"><i style="width: {{.MemPct}}%"></i></span>
+            <span class="meter__val">{{.MemPct}} %<span class="muted small"> · {{bytes .Metric.MemUsed}} из {{bytes .Metric.MemTotal}}</span></span>
+          </div>
+          <div class="meter {{if .DiskLevel}}meter--{{.DiskLevel}}{{end}}">
+            <span class="lab">Диск</span>
+            <span class="meter__bar"><i style="width: {{.DiskPct}}%"></i></span>
+            <span class="meter__val">{{.DiskPct}} %<span class="muted small"> · {{bytes .Metric.DiskUsed}} из {{bytes .Metric.DiskTotal}}</span></span>
+          </div>
+        </div>
+        <div class="grid2 mt">
+          <div>
+            <h3 class="lab">Процессор за сутки</h3>
+            <div class="mt-xs">{{template "chart" .CPU}}</div>
+          </div>
+          <div>
+            <h3 class="lab">Память и своп за сутки</h3>
+            <div class="mt-xs">{{template "chart" .Mem}}</div>
+          </div>
+        </div>
+        <h3 class="lab mt">Сеть за сутки</h3>
+        <div class="mt-xs">{{template "chart" .Net}}</div>
+      </section>
+
+      <section class="card">
+        <div class="card__head"><h2 class="card__title">Трафик через сервер</h2></div>
+        <div class="rows mt-xs">
+          <div class="row"><span class="row__main"><span class="row__name">За сутки</span></span><span class="row__val">{{bytes .Totals.DayTx}} ↓ · {{bytes .Totals.DayRx}} ↑</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">За неделю</span></span><span class="row__val">{{bytes .Totals.WeekRx}} ↓ · {{bytes .Totals.WeekTx}} ↑</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">За месяц</span></span><span class="row__val">{{bytes .Totals.MonthRx}} ↓ · {{bytes .Totals.MonthTx}} ↑</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">За всё время</span></span><span class="row__val">{{bytes .Totals.AllRx}} ↓ · {{bytes .Totals.AllTx}} ↑</span></div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="stack">
+      {{if not .Server.Local}}
+      <section class="card {{if .Server.Retired}}card--warn{{end}}">
+        <div class="card__head">
+          <h2 class="card__title">Сервер в панели</h2>
+          <span class="pill {{if .Server.Retired}}pill--warn{{end}} push">{{if .Server.Retired}}выведен{{else}}в парке{{end}}</span>
+        </div>
+        {{if .Server.Retired}}
+        <p class="card__say">Выведен {{age .Server.RetiredAt}} назад: панель его не опрашивает, устройства на нём не работают, портал их не показывает. Пока сервер здесь, видно, кому нужно раздать новые конфиги.</p>
+        <div class="rows">
+          <div class="row"><span class="row__main"><span class="row__name">Осталось устройств</span></span><span class="row__val">{{.Left.Devices}}</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">У пользователей</span></span><span class="row__val">{{.Left.Users}}</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">Пиров и интерфейсов</span></span><span class="row__val">{{.Left.Peers}} · {{.Left.Interfaces}}</span></div>
+        </div>
+        <div class="btns mt">
+          <form method="post" action="/servers/{{.Server.Slug}}/return">
+            <input type="hidden" name="csrf" value="{{.CSRF}}">
+            <button class="btn btn--sm" type="submit">Вернуть в парк</button>
+          </form>
+          <form method="post" action="/servers/{{.Server.Slug}}/delete">
+            <input type="hidden" name="csrf" value="{{.CSRF}}">
+            <button class="btn btn--sm btn--danger" type="submit"
+                    onclick="return confirm('Убрать {{.Server.Title}} из панели? Уйдут интерфейсы ({{.Left.Interfaces}}), пиры ({{.Left.Peers}}), устройства ({{.Left.Devices}}) и их история трафика. Пользователи останутся. Отменить это нельзя.')">Удалить из панели</button>
+          </form>
+        </div>
+        {{else}}
+        <p class="card__say">Если машина потеряна или закрывается, сервер выводят из парка: опрос прекращается, он перестаёт числиться сломанным, а устройства на нём честно показываются нерабочими — и людям видно, кому нужен новый конфиг.</p>
+        <form method="post" action="/servers/{{.Server.Slug}}/retire">
+          <input type="hidden" name="csrf" value="{{.CSRF}}">
+          <button class="btn btn--sm btn--warn" type="submit"
+                  onclick="return confirm('Вывести {{.Server.Title}} из парка? Опрос прекратится, устройства на нём перестанут работать. Это обратимо.')">Вывести из парка</button>
+        </form>
+        {{end}}
+      </section>
+      {{end}}
+
+      <section class="card">
+        <div class="card__head"><h2 class="card__title">Пороги</h2></div>
+        <p class="card__say">Те же, по которым пишет бот. Правятся в настройках.</p>
+        <div class="rows">
+          <div class="row">
+            <span class="dot {{if .DiskLevel}}dot--{{.DiskLevel}}{{else}}dot--ok{{end}}"></span>
+            <span class="row__main"><span class="row__name">Диск {{.DiskPct}} %</span><span class="row__sub">тревога с {{.Notify.DiskHigh}} %</span></span>
+          </div>
+          <div class="row">
+            <span class="dot {{if .MemLevel}}dot--{{.MemLevel}}{{else}}dot--ok{{end}}"></span>
+            <span class="row__main"><span class="row__name">Память {{.MemPct}} %</span><span class="row__sub">тревога с {{.Notify.MemHigh}} %</span></span>
+          </div>
+          <div class="row">
+            <span class="dot {{if .LoadWarn}}dot--warn{{else}}dot--ok{{end}}"></span>
+            <span class="row__main"><span class="row__name">Нагрузка {{printf "%.2f" .Metric.Load1}}</span><span class="row__sub">тревога с {{printf "%.1f" .Notify.LoadHigh}}</span></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__head"><h2 class="card__title">Сейчас</h2></div>
+        <div class="rows mt-xs">
+          <div class="row"><span class="row__main"><span class="row__name">В туннеле</span></span><span class="row__val">{{.Online}} / {{.Peers}}</span></div>
+          <div class="row"><span class="row__main"><span class="row__name">Сеть машины</span></span><span class="row__val" title="глазами сервера: принято и отправлено">{{bps .Metric.NetRxBps}} принято · {{bps .Metric.NetTxBps}} отдано</span></div>
+          {{if not .Remote}}<div class="row"><span class="row__main"><span class="row__name">База панели</span></span><span class="row__val">{{bytes .DBSize}}</span></div>{{end}}
+          <div class="row"><span class="row__main"><span class="row__name">Метрики</span></span><span class="row__val">раз в минуту</span></div>
+        </div>
+      </section>
+
+      {{if gt (len .Servers) 1}}
+      <section class="card">
+        <div class="card__head"><h2 class="card__title">Другие серверы</h2></div>
+        <div class="rows mt-xs">
+          {{range .Servers}}{{if not .Current}}
+          <a class="row" href="/servers/{{.Slug}}">
+            <span class="row__main"><span class="row__name">{{flag .Country}} {{.Title}}</span></span>
+            <span class="row__val">→</span>
+          </a>
+          {{end}}{{end}}
+        </div>
+      </section>
+      {{end}}
+    </aside>
+  </div>
+</main>
+{{template "foot" .}}
+{{end}}

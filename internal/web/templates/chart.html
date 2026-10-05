@@ -1,0 +1,46 @@
+{{define "chart"}}
+<figure class="chart" data-chart data-points="{{.Data}}" role="img" aria-label="график за {{.Bucket}}">
+  <div class="chart__plot">
+  <div class="chart__y">{{range .YLabels}}<span style="top:{{.Pct}}%">{{.Text}}</span>{{end}}</div>
+  <svg viewBox="0 0 {{.W}} {{.H}}" preserveAspectRatio="none">
+    <defs>
+      <pattern id="gap" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="2" opacity="0.25"/>
+      </pattern>
+    </defs>
+    {{range .Grid}}<line class="grid" x1="0" y1="{{.}}" x2="{{$.W}}" y2="{{.}}" vector-effect="non-scaling-stroke"/>{{end}}
+    {{range .Gaps}}<rect x="{{.X}}" y="0" width="{{.W}}" height="{{$.H}}" fill="url(#gap)"/>{{end}}
+    {{range .Up}}<polyline class="up" points="{{.}}" fill="none" vector-effect="non-scaling-stroke"/>{{end}}
+    {{range .Down}}<polyline class="down" points="{{.}}" fill="none" vector-effect="non-scaling-stroke"/>{{end}}
+    <line class="chart__guide" x1="0" y1="0" x2="0" y2="{{.H}}" vector-effect="non-scaling-stroke" hidden/>
+  </svg>
+  <div class="chart__tip" hidden></div>
+  </div>
+  <div class="chart__axis">
+    {{range .Labels}}<span style="left:{{.Pct}}%">{{.Text}}</span>{{end}}
+  </div>
+  <figcaption>
+    <span class="chart__legend">
+      <span class="chart__key"><svg viewBox="0 0 22 6" width="22" height="6"><line class="down" x1="0" y1="3" x2="22" y2="3" vector-effect="non-scaling-stroke"/></svg>скачано</span>
+      <span class="chart__key"><svg viewBox="0 0 22 6" width="22" height="6"><line class="up" x1="0" y1="3" x2="22" y2="3" vector-effect="non-scaling-stroke"/></svg>отдано</span>
+      {{if .Gaps}}<span class="chart__key"><svg viewBox="0 0 22 6" width="22" height="6"><rect x="0" y="0" width="22" height="6" fill="url(#gap)"/></svg>панель не работала</span>{{end}}
+    </span>
+    <span class="small muted">{{.Caption}}</span>
+  </figcaption>
+</figure>
+{{end}}
+
+{{define "ranges"}}
+<div class="btns">
+  {{range .Ranges}}<a class="btn btn--sm {{if eq .Key $.Range.Key}}btn--on{{end}}" {{if eq .Key $.Range.Key}}aria-current="page"{{end}} href="{{$.RangeBase}}?range={{.Key}}">{{.Title}}</a>{{end}}
+</div>
+{{end}}
+
+{{define "totals"}}
+<div class="rows">
+  <div class="row"><span class="row__main"><span class="row__name">За сутки</span></span><span class="row__val">{{bytes .DayTx}} ↓ · {{bytes .DayRx}} ↑</span></div>
+  <div class="row"><span class="row__main"><span class="row__name">За неделю</span></span><span class="row__val">{{bytes .WeekTx}} ↓ · {{bytes .WeekRx}} ↑</span></div>
+  <div class="row"><span class="row__main"><span class="row__name">За месяц</span></span><span class="row__val">{{bytes .MonthTx}} ↓ · {{bytes .MonthRx}} ↑</span></div>
+  <div class="row"><span class="row__main"><span class="row__name">За всё время</span></span><span class="row__val">{{bytes .AllTx}} ↓ · {{bytes .AllRx}} ↑</span></div>
+</div>
+{{end}}
