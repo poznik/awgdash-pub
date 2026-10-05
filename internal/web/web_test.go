@@ -53,7 +53,10 @@ func newEnv(t *testing.T) *testEnv {
 
 	n := node.New(confDir, "awg", awgtest.New(), []string{"wg-dashboard.service"})
 	n.BackupDir = filepath.Join(dir, "conf-backup")
-	cfg := &config.Config{ServerSlug: "de", ServerTitle: "Германия", AdminHost: "panel.example.com", TZ: "UTC", DBPath: "тест.db"}
+	// DataDir — свой у каждой среды. С пустым значением каталог копий превращался в «backups»
+	// рядом с тестами: один тест клал туда файл, другой судил по его возрасту о делах на обзоре,
+	// и исход зависел от того, когда пакет гоняли в прошлый раз.
+	cfg := &config.Config{ServerSlug: "de", ServerTitle: "Германия", AdminHost: "panel.example.com", TZ: "UTC", DBPath: "тест.db", DataDir: dir}
 	h := hub.New(cfg, st, n, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	srvID, err := st.UpsertLocalServer(ctx, "de", "Германия")
 	if err != nil {
@@ -113,6 +116,23 @@ func newEnv(t *testing.T) *testEnv {
 	jar, _ := cookiejar.New(nil)
 	client := &http.Client{Jar: jar, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	return &testEnv{srv: ts, web: s, client: client, store: st, hub: h, admin: admin, iface: ifaces[0]}
+}
+
+// putBackup кладёт в каталог копий файл с заданным временем изменения. Настоящая копия страницам
+// не нужна: настройки показывают имя и размер, а очередь дел судит о свежести по времени файла.
+func (e *testEnv) putBackup(t *testing.T, at time.Time) {
+	t.Helper()
+	dir := e.hub.BackupDir()
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "awgdash-config-20260825-0330.tar.zst.age")
+	if err := os.WriteFile(path, []byte("не настоящая копия, важен только размер"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(path, at, at); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func (e *testEnv) get(t *testing.T, path string) (*http.Response, string) {
@@ -684,14 +704,7 @@ func TestPhoneShowsWholePage(t *testing.T) {
 // сразу после выкатки.
 func TestSettingsWithBackups(t *testing.T) {
 	e := newEnv(t)
-	dir := e.hub.BackupDir()
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "awgdash-config-20260825-0330.tar.zst.age"),
-		[]byte("не настоящая копия, важен только размер"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	e.putBackup(t, time.Now())
 	e.login(t)
 	resp, body := e.get(t, "/settings")
 	if resp.StatusCode != http.StatusOK {

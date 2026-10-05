@@ -503,11 +503,13 @@ func TestEmptyTaskQueueIsHidden(t *testing.T) {
 	if _, err := e.store.DB().ExecContext(ctx, `UPDATE interfaces SET mode = 'own', unit_active = 1 WHERE id = ?`, e.iface.ID); err != nil {
 		t.Fatal(err)
 	}
+	// Свежая копия — тоже часть «дел нет»: без неё в очереди стоит «Резервных копий нет».
+	e.putBackup(t, now)
 	e.login(t)
 
 	_, body := e.get(t, "/")
 	if strings.Contains(body, "Надо сделать") {
-		t.Fatal("пустая очередь дел показана карточкой")
+		t.Fatalf("пустая очередь дел показана карточкой: %s", taskQueue(body))
 	}
 
 	// Появилось дело — появилась и карточка.
@@ -516,5 +518,41 @@ func TestEmptyTaskQueueIsHidden(t *testing.T) {
 	}
 	if _, body = e.get(t, "/"); !strings.Contains(body, "Надо сделать") || !strings.Contains(body, "нужна перезагрузка") {
 		t.Fatal("дело есть, а очереди нет")
+	}
+}
+
+// Дело о копиях следует за возрастом последней: без копий и с копией старше двух суток оно в
+// очереди, со свежей — молчит. Возраст берётся из времени файла, поэтому тест ставит его сам.
+func TestBackupTaskFollowsCopyAge(t *testing.T) {
+	e := newEnv(t)
+	e.login(t)
+
+	if _, body := e.get(t, "/"); !strings.Contains(body, "Резервных копий нет") {
+		t.Fatalf("копий нет, а дела об этом нет: %s", taskQueue(body))
+	}
+	e.putBackup(t, time.Now().Add(-72*time.Hour))
+	if _, body := e.get(t, "/"); !strings.Contains(body, "Копия не делалась") {
+		t.Fatalf("копии трое суток, а дела об этом нет: %s", taskQueue(body))
+	}
+	e.putBackup(t, time.Now())
+	if _, body := e.get(t, "/"); strings.Contains(body, "Копия не делалась") || strings.Contains(body, "Резервных копий нет") {
+		t.Fatalf("копия свежая, а дело о копиях осталось: %s", taskQueue(body))
+	}
+}
+
+// taskQueue вынимает из страницы названия дел: когда очередь не та, в отказе видно, какое
+// именно дело в неё попало, а не только то, что карточка есть.
+func taskQueue(body string) string {
+	const mark = `<div class="task__what">`
+	var out []string
+	for {
+		i := strings.Index(body, mark)
+		if i < 0 {
+			return strings.Join(out, "; ")
+		}
+		body = body[i+len(mark):]
+		if j := strings.Index(body, "</div>"); j >= 0 {
+			out = append(out, body[:j])
+		}
 	}
 }
